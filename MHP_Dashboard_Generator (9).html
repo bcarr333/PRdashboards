@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MHP · PR Dashboard Generator</title>
+<style>/* Aptos — MHP house font, installed on all MHP machines */</style>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#1a6b40;--brand-d:#0f4024;--brand-l:#f0fdf4;
+  --bg:#f5f5f3;--card:#fff;--border:#e5e5e3;
+  --text:#1a1a1a;--muted:#737370;--red:#dc2626;--gold:#d97706;
+}
+body{font-family:'Aptos','Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
+
+/* TOP BAR */
+.topbar{background:#000;color:#fff;padding:0 32px;height:56px;display:flex;align-items:center;justify-content:space-between}
+.topbar-brand{display:flex;align-items:center;gap:12px}
+.topbar-tag{font-size:10px;background:var(--brand);color:#fff;padding:3px 10px;border-radius:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-left:8px}
+.topbar-right{font-size:11px;opacity:.8}
+
+/* HERO */
+.hero{background:linear-gradient(135deg,var(--brand-d) 0%,var(--brand) 100%);color:#fff;padding:48px 32px 40px;text-align:center}
+.hero h1{font-family:'Aptos','Segoe UI',sans-serif;font-size:36px;margin-bottom:10px}
+.hero p{font-size:14px;opacity:.85;max-width:520px;margin:0 auto;line-height:1.7}
+
+/* STEPS */
+.steps{display:flex;gap:0;justify-content:center;margin-top:28px}
+.step{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 20px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:8px;margin:0 4px}
+.step-num{width:20px;height:20px;background:rgba(255,255,255,.25);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.step-arrow{color:rgba(255,255,255,.4);font-size:16px;margin:0 -2px}
+
+/* MAIN LAYOUT */
+.main{max-width:1100px;margin:0 auto;padding:32px 24px;display:grid;grid-template-columns:380px 1fr;gap:28px;align-items:start}
+
+/* FORM CARD */
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:sticky;top:24px}
+.form-header{background:var(--text);color:#fff;padding:16px 20px}
+.form-header h2{font-family:'Aptos','Segoe UI',sans-serif;font-size:18px}
+.form-header p{font-size:11px;opacity:.6;margin-top:3px}
+.form-body{padding:20px}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.field input[type=text],.field input[type=url]{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;outline:none;transition:border-color .2s}
+.field input[type=text]:focus,.field input[type=url]:focus{border-color:var(--brand)}
+.field .hint{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5}
+.color-row{display:flex;gap:8px;align-items:center}
+.color-row input[type=color]{width:44px;height:36px;border:1.5px solid var(--border);border-radius:7px;cursor:pointer;padding:2px;background:none}
+.color-preview{flex:1;height:36px;border-radius:7px;display:flex;align-items:center;padding:0 12px;font-size:11px;font-weight:600;color:#fff;letter-spacing:.04em;transition:background .2s}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.preset{width:24px;height:24px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:transform .15s,border-color .15s;flex-shrink:0}
+.preset:hover{transform:scale(1.15)}
+.preset.active{border-color:var(--text)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#logo-drop:hover{border-color:var(--brand);background:var(--brand-l)}
+.generate-btn{width:100%;background:var(--brand);color:#fff;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:.02em}
+.generate-btn:hover{background:var(--brand-d);transform:translateY(-1px);box-shadow:0 4px 16px rgba(26,107,64,.3)}
+.generate-btn:active{transform:none}
+.generate-btn:disabled{opacity:.5;cursor:default;transform:none;box-shadow:none}
+.validation-msg{font-size:11px;color:var(--red);margin-top:8px;display:none;text-align:center}
+.success-msg{font-size:11px;color:var(--brand);margin-top:8px;display:none;text-align:center;font-weight:600}
+
+/* PANEL SELECTOR */
+.panels-card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.panels-header{background:var(--text);color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
+.panels-header h2{font-family:'Aptos','Segoe UI',sans-serif;font-size:18px}
+.panels-header p{font-size:11px;opacity:.6;margin-top:3px}
+.panels-actions{display:flex;gap:8px}
+.txt-btn{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:5px;padding:5px 10px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.04em}
+.panels-body{padding:20px}
+.group{margin-bottom:20px}
+.group:last-child{margin-bottom:0}
+.group-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.panel-item{border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:10px;user-select:none}
+.panel-item:hover{border-color:var(--brand);background:var(--brand-l)}
+.panel-item.selected{border-color:var(--brand);background:var(--brand-l)}
+.panel-item.selected .panel-check{background:var(--brand);border-color:var(--brand);color:#fff}
+.panel-check{width:18px;height:18px;border:1.5px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;margin-top:1px;transition:all .15s}
+.panel-icon{font-size:16px;flex-shrink:0}
+.panel-info{flex:1;min-width:0}
+.panel-name{font-weight:600;font-size:12px;color:var(--text)}
+.panel-desc{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4}
+.panel-count{font-size:10px;color:var(--brand);font-weight:700;margin-top:6px}
+
+/* RESPONSIVE */
+@media(max-width:800px){.main{grid-template-columns:1fr}.form-card{position:static}.steps{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <img src="data:image/png;base64,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" alt="MHP Group" style="height:30px;display:block;filter:brightness(20)">
+    <span class="topbar-tag">PR Dashboard Generator</span>
+  </div>
+  <div class="topbar-right">Internal tool · Confidential</div>
+</div>
+
+<div class="hero">
+  <h1>Generate a client dashboard in 60 seconds</h1>
+  <p>Fill in the client details, choose your panels, and download a ready-to-upload dashboard. No code needed.</p>
+  <div class="steps">
+    <div class="step"><span class="step-num">1</span> Client details</div>
+    <div class="step-arrow">›</div>
+    <div class="step"><span class="step-num">2</span> Select panels</div>
+    <div class="step-arrow">›</div>
+    <div class="step"><span class="step-num">3</span> Download HTML</div>
+    <div class="step-arrow">›</div>
+    <div class="step"><span class="step-num">4</span> Upload to Netlify</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- FORM -->
+  <div class="form-card">
+    <div class="form-header">
+      <h2>Client Details</h2>
+      <p>These are embedded into the dashboard file</p>
+    </div>
+    <div class="form-body">
+      <div class="field">
+        <label>Client Name *</label>
+        <input type="text" id="client-name" placeholder="e.g. Zevero" />
+      </div>
+      <div class="field">
+        <label>Google Sheet URL *</label>
+        <input type="url" id="sheet-url" placeholder="Paste the full sheet URL here" />
+        <div class="hint">The sheet must be shared: Share → Anyone with the link → Viewer</div>
+      </div>
+      <div class="field">
+        <label>Brand Colour</label>
+        <div class="color-row">
+          <input type="color" id="brand-color" value="#1a6b40" oninput="updateColor(this.value)" />
+          <div class="color-preview" id="color-preview">#1a6b40</div>
+        </div>
+        <div class="presets">
+          <div class="preset active" style="background:#1a6b40" onclick="setColor('#1a6b40')" title="Forest Green"></div>
+          <div class="preset" style="background:#1e3a5f" onclick="setColor('#1e3a5f')" title="Navy"></div>
+          <div class="preset" style="background:#0d9488" onclick="setColor('#0d9488')" title="Teal"></div>
+          <div class="preset" style="background:#7c3aed" onclick="setColor('#7c3aed')" title="Purple"></div>
+          <div class="preset" style="background:#dc2626" onclick="setColor('#dc2626')" title="Red"></div>
+          <div class="preset" style="background:#d97706" onclick="setColor('#d97706')" title="Amber"></div>
+          <div class="preset" style="background:#0284c7" onclick="setColor('#0284c7')" title="Sky Blue"></div>
+          <div class="preset" style="background:#be185d" onclick="setColor('#be185d')" title="Pink"></div>
+          <div class="preset" style="background:#374151" onclick="setColor('#374151')" title="Slate"></div>
+          <div class="preset" style="background:#111827" onclick="setColor('#111827')" title="Almost Black"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Client Logo <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#aaa">(any format)</span></label>
+        <label id="logo-drop" style="display:flex;align-items:center;gap:10px;border:1.5px dashed var(--border);border-radius:7px;padding:10px 14px;cursor:pointer;transition:border-color .2s;background:#fafaf9">
+          <input type="file" id="logo-file" accept="image/*" style="display:none" onchange="handleLogo(this)">
+          <span id="logo-icon" style="font-size:20px">🖼️</span>
+          <span id="logo-label" style="font-size:12px;color:var(--muted)">Click to upload logo</span>
+          <img id="logo-preview" style="display:none;max-height:32px;max-width:120px;object-fit:contain;margin-left:auto;border-radius:4px">
+        </label>
+        <div class="hint">Appears in the dashboard header. PNG recommended for best results.</div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Reporting Period</label>
+          <input type="text" id="period" placeholder="e.g. Q1 2026" />
+        </div>
+        <div class="field">
+          <label>Agency Name</label>
+          <input type="text" id="agency" value="MHP Group" />
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
+        <div class="panel-count" id="panel-count" style="margin-bottom:12px;font-size:11px;color:var(--muted)">16 panels selected</div>
+        <button class="generate-btn" onclick="handleGenerate()">
+          ⬇ Generate &amp; Download Dashboard
+        </button>
+        <div class="validation-msg" id="val-msg"></div>
+        <div class="success-msg" id="ok-msg">✓ Dashboard generated! Upload the HTML file to Netlify.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL SELECTOR -->
+  <div class="panels-card">
+    <div class="panels-header">
+      <div>
+        <h2>Select Panels</h2>
+        <p>Choose which sections appear in this client's dashboard</p>
+      </div>
+      <div class="panels-actions">
+        <button class="txt-btn" onclick="selectAll()">Select all</button>
+        <button class="txt-btn" onclick="deselectAll()">Clear</button>
+      </div>
+    </div>
+    <div class="panels-body" id="panel-selector"></div>
+  </div>
+
+</div>
+
+<script>
+const PANEL_DEFS = [{"id": "result-snapshot", "label": "Result Snapshot", "desc": "Top-level KPI callouts combining outputs & outcomes", "icon": "\ud83c\udfaf", "group": "Summary"}, {"id": "outputs-tracker", "label": "Outputs Tracker", "desc": "Monthly activity delivery table vs targets", "icon": "\ud83d\udccb", "group": "Summary"}, {"id": "volume", "label": "Coverage Volume", "desc": "Weekly article count, proactive vs organic", "icon": "\ud83d\udcc8", "group": "Coverage"}, {"id": "top-tier", "label": "Top Tier Coverage", "desc": "Top tier vs all coverage split", "icon": "\u2b50", "group": "Coverage"}, {"id": "article-log", "label": "Article Log", "desc": "Full searchable table of every article", "icon": "\ud83d\udcf0", "group": "Coverage"}, {"id": "sentiment-donut", "label": "Overall Sentiment", "desc": "Positive / balanced / negative donut", "icon": "\ud83d\udc9a", "group": "Sentiment"}, {"id": "sentiment-trend", "label": "Sentiment Trend", "desc": "Weekly sentiment breakdown bar chart", "icon": "\ud83d\udcca", "group": "Sentiment"}, {"id": "sources", "label": "Source Breakdown", "desc": "National / trade / regional + citation placement", "icon": "\ud83d\uddde\ufe0f", "group": "Sources"}, {"id": "activity-drivers", "label": "Activity Drivers", "desc": "What campaigns are generating coverage", "icon": "\ud83d\ude80", "group": "Content"}, {"id": "themes", "label": "Themes", "desc": "Coverage breakdown by message theme", "icon": "\ud83c\udff7\ufe0f", "group": "Content"}, {"id": "spokespeople", "label": "Spokespeople", "desc": "Article count per spokesperson", "icon": "\ud83d\udc64", "group": "Spokespeople"}, {"id": "most-quoted", "label": "Most Active Spokesperson", "desc": "Callout card for top spokesperson", "icon": "\ud83d\udcac", "group": "Spokespeople"}, {"id": "journalists", "label": "Top Journalists", "desc": "Most prolific journalists by sentiment", "icon": "\u270d\ufe0f", "group": "Media"}, {"id": "publications", "label": "Top Publications", "desc": "Most prolific publications by sentiment", "icon": "\ud83d\udcc4", "group": "Media"}, {"id": "sov", "label": "Share of Voice", "desc": "Competitive SOV donut + bar breakdown", "icon": "\ud83e\udd67", "group": "Competitive"}, {"id": "sentiment-comparison", "label": "Sentiment Comparison", "desc": "Client vs competitor sentiment bars", "icon": "\u2696\ufe0f", "group": "Competitive"}];
+
+// Track selected panels
+const selected = new Set(PANEL_DEFS.map(p => p.id));
+
+function renderPanelSelector() {
+  const groups = {};
+  PANEL_DEFS.forEach(p => { if(!groups[p.group]) groups[p.group]=[]; groups[p.group].push(p); });
+  const el = document.getElementById('panel-selector');
+  el.innerHTML = Object.entries(groups).map(([group, panels]) =>
+    '<div class="group">' +
+    '<div class="group-label">' + group + '</div>' +
+    '<div class="panel-grid">' +
+    panels.map(p =>
+      '<div class="panel-item ' + (selected.has(p.id)?'selected':'') + '" id="pi-'+p.id+'" onclick="togglePanel(\''+p.id+'\')">' +
+      '<div class="panel-check">' + (selected.has(p.id)?'✓':'') + '</div>' +
+      '<div class="panel-icon">' + p.icon + '</div>' +
+      '<div class="panel-info"><div class="panel-name">'+p.label+'</div><div class="panel-desc">'+p.desc+'</div></div>' +
+      '</div>'
+    ).join('') +
+    '</div></div>'
+  ).join('');
+  updateCount();
+}
+
+function togglePanel(id) {
+  if(selected.has(id)) selected.delete(id); else selected.add(id);
+  const el = document.getElementById('pi-'+id);
+  const isOn = selected.has(id);
+  el.className = 'panel-item ' + (isOn?'selected':'');
+  el.querySelector('.panel-check').textContent = isOn?'✓':'';
+  updateCount();
+}
+
+function selectAll() { PANEL_DEFS.forEach(p=>selected.add(p.id)); renderPanelSelector(); }
+function deselectAll() { selected.clear(); renderPanelSelector(); }
+function updateCount() {
+  const n = selected.size;
+  document.getElementById('panel-count').textContent = n + ' panel' + (n!==1?'s':'') + ' selected';
+}
+
+// Color utilities
+function hexToHSL(hex) {
+  let r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b); let h,s,l=(max+min)/2;
+  if(max===min){h=s=0;}else{
+    const d=max-min; s=l>0.5?d/(2-max-min):d/(max+min);
+    switch(max){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;case b:h=(r-g)/d+4;break;}
+    h/=6;
+  }
+  return [Math.round(h*360),Math.round(s*100),Math.round(l*100)];
+}
+function hslToHex(h,s,l) {
+  s/=100;l/=100;
+  const a=s*Math.min(l,1-l);
+  const f=n=>{const k=(n+h/30)%12;const c=l-a*Math.max(Math.min(k-3,9-k,1),-1);return Math.round(255*c).toString(16).padStart(2,'0');};
+  return '#'+f(0)+f(8)+f(4);
+}
+function getLightColor(hex) {
+  const [h,s,l]=hexToHSL(hex); return hslToHex(h,Math.min(s,40),Math.min(l+42,96));
+}
+function getDarkColor(hex) {
+  const [h,s,l]=hexToHSL(hex); return hslToHex(h,s,Math.max(l-15,8));
+}
+function getTextColor(hex) {
+  const [h,s,l]=hexToHSL(hex); return l>55?'#111':'#fff';
+}
+
+function updateColor(hex) {
+  document.getElementById('color-preview').style.background = hex;
+  document.getElementById('color-preview').textContent = hex;
+  document.getElementById('color-preview').style.color = getTextColor(hex);
+  document.querySelectorAll('.preset').forEach(el => {
+    el.classList.toggle('active', el.style.background.toLowerCase()===hex||el.getAttribute('onclick').includes(hex));
+  });
+}
+function setColor(hex) {
+  document.getElementById('brand-color').value = hex;
+  updateColor(hex);
+}
+
+function extractSheetId(url) {
+  const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : url.trim();
+}
+
+let logoData = null;
+
+function handleLogo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    logoData = e.target.result; // full data URL
+    document.getElementById('logo-preview').src = logoData;
+    document.getElementById('logo-preview').style.display = 'block';
+    document.getElementById('logo-label').textContent = file.name;
+    document.getElementById('logo-icon').textContent = '✓';
+    document.getElementById('logo-drop').style.borderColor = 'var(--brand)';
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleGenerate() {
+  const clientName = document.getElementById('client-name').value.trim();
+  const sheetUrl = document.getElementById('sheet-url').value.trim();
+  const valMsg = document.getElementById('val-msg');
+  const okMsg = document.getElementById('ok-msg');
+  valMsg.style.display='none'; okMsg.style.display='none';
+
+  if(!clientName){valMsg.textContent='Please enter a client name.';valMsg.style.display='block';return;}
+  if(!sheetUrl){valMsg.textContent='Please enter the Google Sheet URL.';valMsg.style.display='block';return;}
+  if(selected.size===0){valMsg.textContent='Please select at least one panel.';valMsg.style.display='block';return;}
+
+  const sheetId = extractSheetId(sheetUrl);
+  const brandColor = document.getElementById('brand-color').value;
+  const brandLight = getLightColor(brandColor);
+  const brandDark = getDarkColor(brandColor);
+  const period = document.getElementById('period').value.trim() || '2026';
+  const agency = document.getElementById('agency').value.trim() || 'MHP Group';
+  const panels = Array.from(selected);
+
+  const html = generateDashboard({clientName, sheetId, brandColor, brandLight, brandDark, period, agency, panels, logo: logoData});
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=clientName.replace(/\s+/g,'-')+'-PR-Dashboard.html';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  okMsg.style.display='block';
+}
+
+// ── DASHBOARD TEMPLATE ────────────────────────────────────────────────────────
+function generateDashboard(cfg) {
+  const {clientName, sheetId, brandColor, brandLight, brandDark, period, agency, panels, logo} = cfg;
+  const panelsJSON = JSON.stringify(panels);
+  const COLORS_STR = '["'+brandColor+'","#1e3a5f","#0d9488","#d97706","#7c3aed","#dc2626","#0284c7","#be185d"]';
+
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n' +
+'<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">\n' +
+'<title>'+clientName+' \xB7 PR Dashboard</title>\n' +
+'<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"><\/script>\n' +
+'<style>/* Aptos — MHP house font, installed on all MHP machines */</style>\n' +
+'<style>\n' +
+'*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}\n' +
+':root{\n' +
+'  --brand:'+brandColor+';--brand-l:'+brandLight+';--brand-d:'+brandDark+';\n' +
+'  --bg:#f5f5f3;--card:#fff;--border:#e5e5e3;\n' +
+'  --text:#1a1a1a;--muted:#737370;\n' +
+'  --pos:#16a34a;--bal:#2563eb;--neg:#dc2626;\n' +
+'}\n' +
+'body{font-family:"Aptos","Segoe UI",sans-serif;background:var(--bg);color:var(--text);font-size:12px;line-height:1.4;padding:20px}\n' +
+'@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}\n' +
+'@keyframes spin{to{transform:rotate(360deg)}}\n' +
+'#state{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:100}\n' +
+'#state.hidden{display:none}\n' +
+'.spinner{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite}\n' +
+'#state h2{font-family:"Aptos","Segoe UI",sans-serif;font-size:20px}\n' +
+'#state p{font-size:12px;color:var(--muted);text-align:center;max-width:400px;line-height:1.7}\n' +
+'#state .err{color:var(--neg);background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;font-size:11px;max-width:460px;line-height:1.7;display:none}\n' +
+'#state ol{font-size:11px;color:var(--muted);line-height:2;padding-left:18px;display:none}\n' +
+'.retry-btn{background:var(--brand);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}\n' +
+'.hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid var(--text)}\n' +
+'.hdr-title{font-family:"Aptos","Segoe UI",sans-serif;font-size:30px;line-height:1.1}\n' +
+'.hdr-sub{font-size:10px;color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.1em}\n' +
+'.hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:6px}\n' +
+'.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:var(--brand);color:#fff}\n' +
+'.bdot{width:6px;height:6px;background:#4ade80;border-radius:50%;animation:pulse 2s infinite}\n' +
+'.hdr-meta{font-size:10px;color:var(--muted);text-align:right}\n' +
+'.btn{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:10px;font-weight:600;color:var(--brand);cursor:pointer;font-family:inherit;transition:all .2s}\n' +
+'.btn:hover{background:var(--brand);color:#fff;border-color:var(--brand)}\n' +
+'.btn:disabled{opacity:.4;cursor:default}\n' +
+'.snap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}\n' +
+'.snap-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;text-align:center}\n' +
+'.snap-val{font-family:"Aptos","Segoe UI",sans-serif;font-size:36px;color:var(--brand);line-height:1}\n' +
+'.snap-lbl{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-top:4px;line-height:1.4}\n' +
+'.snap-arrow{font-size:20px;color:var(--muted);display:flex;align-items:center;justify-content:center;align-self:center}\n' +
+'.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}\n' +
+'.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px}\n' +
+'.kpi-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}\n' +
+'.kpi-val{font-family:"Aptos","Segoe UI",sans-serif;font-size:24px;line-height:1}\n' +
+'.kpi-lbl{font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-top:3px}\n' +
+'.grid{display:grid;gap:12px;margin-bottom:12px}\n' +
+'.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;overflow:hidden}\n' +
+'.ct{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}\n' +
+'.brow{display:flex;align-items:center;gap:8px;margin-bottom:7px}\n' +
+'.blbl{font-size:10px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}\n' +
+'.btrk{flex:1;height:15px;background:#eef0ed;border-radius:3px;overflow:hidden}\n' +
+'.bfil{height:100%;border-radius:3px}\n' +
+'.bval{font-size:10px;font-weight:700;width:26px;text-align:right;flex-shrink:0}\n' +
+'.jrow{display:flex;align-items:center;gap:6px;margin-bottom:6px}\n' +
+'.jnm{font-size:10px;width:80px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n' +
+'.mb{display:flex;gap:2px;flex:1}\n' +
+'.ms{height:14px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700;min-width:14px}\n' +
+'.sov-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}\n' +
+'.sov-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}\n' +
+'.sov-trk{flex:1;height:9px;background:#eef0ed;border-radius:2px;overflow:hidden}\n' +
+'.sov-fil{height:100%;border-radius:2px}\n' +
+'.sov-val{font-size:10px;font-weight:700;width:28px;text-align:right}\n' +
+'.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:12px}\n' +
+'.scell{padding:8px;border-radius:6px;text-align:center;color:#fff}\n' +
+'.spct{font-family:"Aptos","Segoe UI",sans-serif;font-size:18px;line-height:1}\n' +
+'.slbl{font-size:8px;opacity:.85;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}\n' +
+'.qcard{background:var(--brand-l);border:1px solid rgba(0,0,0,.08);border-radius:8px;padding:12px}\n' +
+'.qpct{font-family:"Aptos","Segoe UI",sans-serif;font-size:34px;color:var(--brand);line-height:1}\n' +
+'.qperson{display:flex;align-items:center;gap:8px;margin-top:10px}\n' +
+'.qav{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand-d));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0}\n' +
+'.qnm{font-weight:700;font-size:12px}\n' +
+'.qtl{font-size:10px;color:var(--muted)}\n' +
+'.qact{font-size:9px;color:var(--muted);font-style:italic;margin-top:8px;line-height:1.6;border-left:2px solid var(--brand);padding-left:8px}\n' +
+'.qsrc{font-size:9px;color:var(--brand);margin-top:6px;font-weight:500}\n' +
+'.leg{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}\n' +
+'.li{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)}\n' +
+'.ld{width:8px;height:8px;border-radius:2px;flex-shrink:0}\n' +
+'.out-table{width:100%;border-collapse:collapse;font-size:11px}\n' +
+'.out-table th{background:var(--brand);color:#fff;padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}\n' +
+'.out-table th.num{text-align:center}\n' +
+'.out-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}\n' +
+'.out-table td.num{text-align:center;font-weight:700}\n' +
+'.out-table tr:hover td{background:#f9faf8}\n' +
+'.pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700}\n' +
+'.pill-green{background:#dcfce7;color:#166534}\n' +
+'.pill-amber{background:#fef3c7;color:#92400e}\n' +
+'.pill-red{background:#fee2e2;color:#991b1b}\n' +
+'.art-table{width:100%;border-collapse:collapse;font-size:10px}\n' +
+'.art-table th{background:var(--brand);color:#fff;padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}\n' +
+'.art-table td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:top}\n' +
+'.art-table tr:hover td{background:#f9faf8}\n' +
+'.foot{margin-top:16px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:9px;color:var(--muted)}\n' +
+'.fbrand{font-family:"Aptos","Segoe UI",sans-serif;font-size:15px;color:var(--text)}\n' +
+/* panels shown/hidden by JS showPanels() */
+'.panel-row{margin-bottom:12px}\n' +
+'</style>\n</head>\n<body>\n\n' +
+
+'<div id="state">\n' +
+'<div class="spinner"></div>\n' +
+'<h2 id="st-title">Loading '+clientName+' PR data\u2026</h2>\n' +
+'<p id="st-msg">Connecting to Google Sheets</p>\n' +
+'<div class="err" id="st-err"></div>\n' +
+'<ol id="st-steps" style="display:none">\n' +
+'<li>Open your <a href="https://docs.google.com/spreadsheets/d/'+sheetId+'" target="_blank">Google Sheet</a></li>\n' +
+'<li>Click <strong>Share &rarr; Change to anyone with the link &rarr; Viewer</strong></li>\n' +
+'<li>Click <strong>Done</strong>, then retry below</li>\n</ol>\n' +
+'<button class="retry-btn" id="retry-btn" onclick="init()" style="display:none">&circlearrowleft; Retry</button>\n' +
+'</div>\n\n' +
+
+'<div id="dash" style="display:none">\n' +
+'<div class="hdr">\n' +
+'  <div style="display:flex;align-items:center;gap:16px">\n' +
+  (logo ? '<img src="'+logo+'" alt="'+clientName+'" style="max-height:44px;max-width:160px;object-fit:contain">' : '') +
+'    <div>\n' +
+'      <div class="hdr-title">'+clientName+' &middot; PR Dashboard</div>\n' +
+'      <div class="hdr-sub">Media Intelligence &amp; Coverage Analysis &middot; '+period+'</div>\n' +
+'    </div>\n' +
+'  </div>\n' +
+'  <div class="hdr-r">\n' +
+'    <div style="display:flex;gap:8px;align-items:center">\n' +
+'      <span class="badge"><span class="bdot"></span>Live &middot; Google Sheets</span>\n' +
+'      <button class="btn" id="ref-btn" onclick="init()">&circlearrowleft; Refresh</button>\n' +
+'    </div>\n' +
+'    <div class="hdr-meta" id="hdr-meta">&mdash;</div>\n' +
+'  </div>\n' +
+'</div>\n\n' +
+
+'<!-- Result Snapshot -->\n' +
+'<div data-panel="result-snapshot" class="panel-row">\n' +
+'  <div class="snap-grid" id="snap-grid"></div>\n' +
+'</div>\n\n' +
+
+'<!-- Outputs Tracker -->\n' +
+'<div data-panel="outputs-tracker" class="panel-row">\n' +
+'  <div class="card"><div class="ct">Outputs Tracker &mdash; Monthly KPI Delivery</div>\n' +
+'  <div style="overflow-x:auto"><table class="out-table"><thead id="out-thead"></thead><tbody id="out-tbody"></tbody></table></div></div>\n' +
+'</div>\n\n' +
+
+'<!-- KPIs -->\n' +
+'<div class="kpi-row">\n' +
+'  <div class="kpi"><div class="kpi-icon" style="background:var(--brand-l)">&#128240;</div><div><div class="kpi-val" id="k-art">&mdash;</div><div class="kpi-lbl">Relevant Articles</div></div></div>\n' +
+'  <div class="kpi"><div class="kpi-icon" style="background:#fefce8">&#128202;</div><div><div class="kpi-val" id="k-sent" style="color:var(--pos)">&mdash;</div><div class="kpi-lbl">Positive Sentiment</div></div></div>\n' +
+'  <div class="kpi"><div class="kpi-icon" style="background:#eff6ff">&#128100;</div><div><div class="kpi-val" id="k-spk" style="color:#1e3a5f">&mdash;</div><div class="kpi-lbl">Spokesperson Visibility</div></div></div>\n' +
+'  <div class="kpi"><div class="kpi-icon" style="background:var(--brand-l)">&#127919;</div><div><div class="kpi-val" id="k-pr" style="color:var(--brand)">&mdash;</div><div class="kpi-lbl">PR Influenced</div></div></div>\n' +
+'  <div class="kpi"><div class="kpi-icon" style="background:#f0fdfa">&#11088;</div><div><div class="kpi-val" id="k-tier" style="color:#0d9488">&mdash;</div><div class="kpi-lbl">Top Tier Hits</div></div></div>\n' +
+'</div>\n\n' +
+
+'<!-- Volume + Sentiment + Sources -->\n' +
+'<div class="grid" style="grid-template-columns:2fr 1fr 1fr" id="row-vss">\n' +
+'  <div class="card" data-panel="volume"><div class="ct">Coverage Volume &mdash; Articles by Week</div><canvas id="cVol" height="130"></canvas><div class="leg" style="margin-top:10px"><div class="li"><div class="ld" style="background:var(--brand)"></div>Proactive</div><div class="li"><div class="ld" style="background:#1e3a5f"></div>Organic</div></div></div>\n' +
+'  <div class="card" data-panel="sentiment-donut" data-flex="1" style="display:none;flex-direction:column"><div class="ct">Overall Sentiment</div><div style="flex:1;display:flex;align-items:center;justify-content:center"><canvas id="cSent" width="130" height="130"></canvas></div><div class="leg" style="justify-content:center"><div class="li"><div class="ld" style="background:var(--pos)"></div>Positive</div><div class="li"><div class="ld" style="background:var(--bal)"></div>Balanced</div><div class="li"><div class="ld" style="background:var(--neg)"></div>Negative</div></div></div>\n' +
+'  <div class="card" data-panel="sources"><div class="ct">Source Breakdown</div><div class="sgrid"><div class="scell" style="background:var(--brand)"><div class="spct" id="src-nat">&mdash;</div><div class="slbl">National</div></div><div class="scell" style="background:#1e3a5f"><div class="spct" id="src-trd">&mdash;</div><div class="slbl">Trade</div></div><div class="scell" style="background:#0d9488"><div class="spct" id="src-reg">&mdash;</div><div class="slbl">Regional</div></div></div><div class="ct">Citation Prominence</div><div id="cite-bars"></div></div>\n' +
+'</div>\n\n' +
+
+'<!-- Top Tier + Sentiment Trend -->\n' +
+'<div class="grid" style="grid-template-columns:1fr 2fr" id="row-tt">\n' +
+'  <div class="card" data-panel="top-tier"><div class="ct">Top Tier vs All Coverage</div><div id="tier-bars"></div></div>\n' +
+'  <div class="card" data-panel="sentiment-trend"><div class="ct">Sentiment Trend &mdash; Weekly</div><canvas id="cTrend" height="80"></canvas><div class="leg" style="margin-top:8px"><div class="li"><div class="ld" style="background:var(--pos)"></div>Positive</div><div class="li"><div class="ld" style="background:var(--bal)"></div>Balanced</div><div class="li"><div class="ld" style="background:var(--neg)"></div>Negative</div></div></div>\n' +
+'</div>\n\n' +
+
+'<!-- Activity Drivers + Spokespeople + Most Quoted -->\n' +
+'<div class="grid" style="grid-template-columns:1fr 1.4fr 1.6fr" id="row-asm">\n' +
+'  <div class="card" data-panel="activity-drivers"><div class="ct">Activity Drivers</div><canvas id="cAct" height="190"></canvas></div>\n' +
+'  <div class="card" data-panel="spokespeople"><div class="ct">Spokespeople &mdash; No. of Articles</div><div id="spk-bars" style="margin-top:4px"></div></div>\n' +
+'  <div class="card" data-panel="most-quoted"><div class="ct">Most Active Spokesperson</div><div class="qcard"><div class="qpct" id="q-pct">&mdash;</div><div style="font-size:9px;color:var(--muted);margin-top:2px">of all spokesperson mentions</div><div class="qperson"><div class="qav" id="q-av">&mdash;</div><div><div class="qnm" id="q-nm">&mdash;</div><div class="qtl" id="q-tl">&mdash;</div></div></div><div class="qact" id="q-act">&mdash;</div><div class="qsrc" id="q-src">&mdash;</div></div></div>\n' +
+'</div>\n\n' +
+
+'<!-- Bottom row -->\n' +
+'<div class="grid" style="grid-template-columns:1fr 1fr 0.8fr 1.2fr 1.6fr" id="row-bot">\n' +
+'  <div class="card" data-panel="journalists"><div class="ct">Most Prolific Journalists</div><div id="j-rows"></div></div>\n' +
+'  <div class="card" data-panel="publications"><div class="ct">Most Prolific Publications</div><div id="m-rows"></div></div>\n' +
+'  <div class="card" data-panel="themes"><div class="ct">Themes</div><div id="t-rows"></div></div>\n' +
+'  <div class="card" data-panel="sov"><div class="ct">Share of Voice</div><canvas id="cSov" height="110"></canvas><div id="sov-leg" style="margin-top:8px"></div></div>\n' +
+'  <div class="card" data-panel="sentiment-comparison"><div class="ct">Sentiment Comparison</div><div id="sc-rows"></div></div>\n' +
+'</div>\n\n' +
+
+'<!-- Article Log -->\n' +
+'<div data-panel="article-log" class="panel-row">\n' +
+'  <div class="card"><div class="ct">Full Article Log</div><div style="overflow-x:auto"><table class="art-table"><thead><tr><th>Date</th><th>Headline</th><th>Publication</th><th>Journalist</th><th>Campaign</th><th>Sentiment</th><th>Citation</th><th>Top Tier?</th><th>Spokesperson</th></tr></thead><tbody id="art-body"></tbody></table></div></div>\n' +
+'</div>\n\n' +
+
+'<div class="foot"><div><div class="fbrand">'+clientName+' &middot; PR Dashboard</div><div style="margin-top:2px" id="foot-ts">Powered by '+agency+' &middot; Live from Google Sheets</div></div><div style="text-align:right">Confidential &amp; Proprietary</div></div>\n' +
+'</div>\n\n' +
+
+'<script>\n' +
+'Chart.defaults.font.family=\'"Aptos","Segoe UI",sans-serif\';\n' +
+'Chart.defaults.font.size=10;\n' +
+'Chart.defaults.color=\'#737370\';\n' +
+'const SHEET=\''+sheetId+'\';\n' +
+'const CLIENT=\''+clientName+'\';\n' +
+'const BRAND=\''+brandColor+'\';\n' +
+'const COLORS='+COLORS_STR+';\n' +
+'const PANELS='+panelsJSON+';\n' +
+'let charts={};\n\n' +
+
+'function has(p){return PANELS.indexOf(p)>-1;}\n' +
+'function showPanels(){\n' +
+// First hide all panels, then show only active ones\n'  document.querySelectorAll("[data-panel]").forEach(function(el){\n' +
+'    el.style.display="none";\n' +
+'  });\n' +
+'  document.querySelectorAll("[data-panel]").forEach(function(el){\n' +
+'    if(has(el.getAttribute("data-panel"))){\n' +
+'      el.style.display=el.getAttribute("data-flex")==="1"?"flex":"block";\n' +
+'    }\n' +
+'  });\n' +
+'  ["row-vss","row-tt","row-asm","row-bot"].forEach(function(id){\n' +
+'    var row=document.getElementById(id);\n' +
+'    if(!row)return;\n' +
+'    var any=Array.from(row.querySelectorAll("[data-panel]")).some(function(c){return c.style.display!=="none";});\n' +
+'    row.style.display=any?"grid":"none";\n' +
+'  });\n' +
+'}\n\n' +
+
+'async function fetchTab(tab){\n' +
+'  var url="https://docs.google.com/spreadsheets/d/"+SHEET+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(tab);\n' +
+'  var fetchP=fetch(url);\n' +
+'  var timeoutP=new Promise(function(_,rej){setTimeout(function(){rej(new Error("Timed out loading tab \'"+tab+"\' - check sheet is public"));},9000);});\n' +
+'  var r=await Promise.race([fetchP,timeoutP]);\n' +
+'  if(!r.ok)throw new Error("Cannot read \\""+tab+"\\". Is the sheet shared publicly?");\n' +
+'  var t=await r.text();\n' +
+'  if(t.indexOf("Sign in")>-1)throw new Error("Sheet is not public. Share \u2192 Anyone with the link \u2192 Viewer.");\n' +
+'  return parseCSV(t);\n' +
+'}\n\n' +
+
+'function parseCSV(t){\n' +
+'  return t.trim().split("\\n").map(function(line){\n' +
+'    var cells=[],c="",q=false;\n' +
+'    for(var i=0;i<line.length;i++){\n' +
+'      if(line[i]===\'"\'){q=!q;continue;}\n' +
+'      if(line[i]===","&&!q){cells.push(c.trim());c="";continue;}\n' +
+'      c+=line[i];\n' +
+'    }\n' +
+'    cells.push(c.trim());return cells;\n' +
+'  });\n' +
+'}\n\n' +
+
+'var g=function(v){return String(v||"").trim();};\n' +
+'var n=function(v){return parseFloat(g(v).replace(/[^0-9.\\-]/g,""))||0;};\n' +
+'var pct=function(a,b){return Math.round(a/Math.max(b,1)*100);};\n' +
+'var set=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};\n\n' +
+
+'async function init(){\n' +
+'  setState("loading");\n' +
+'  var rb=document.getElementById("ref-btn");if(rb)rb.disabled=true;\n' +
+'  try{\n' +
+'    var tabs=await Promise.all([fetchTab("RAW_DATA"),fetchTab("LISTS"),fetchTab("OUTPUTS").catch(function(){return[];}),fetchTab("ShareOfVoice").catch(function(){return[];}),fetchTab("SentimentComparison").catch(function(){return[];})]);\n' +
+'    var arts=tabs[0].slice(2).filter(function(r){return g(r[2]);});\n' +
+'    var lr=tabs[1].slice(2).filter(function(r){return r.some(Boolean);});\n' +
+'    var spkList=lr.map(function(r){return{name:g(r[0]),title:g(r[1])};}).filter(function(r){return r.name&&r.name.indexOf("\u2196")<0&&r.name.indexOf("Spokesperson")<0;});\n' +
+'    var themeList=lr.map(function(r){return g(r[2]);}).filter(Boolean);\n' +
+'    var journoList=lr.map(function(r){return g(r[3]);}).filter(Boolean);\n' +
+'    var pubList=lr.map(function(r){return g(r[4]);}).filter(Boolean);\n' +
+'    var outputs=tabs[2];\n' +
+'    var sovData=tabs[3].slice(2).filter(function(r){return g(r[0])&&g(r[0]).indexOf("Note")<0;});\n' +
+'    var scData=tabs[4].slice(2).filter(function(r){return g(r[0])&&g(r[0]).indexOf("Note")<0;});\n' +
+'    render(arts,spkList,themeList,journoList,pubList,outputs,sovData,scData);\n' +
+'    showPanels();\n' +
+'    setState("done");\n' +
+'  }catch(e){\n' +
+'    setState("error",e.message);\n' +
+'  }finally{\n' +
+'    if(rb)rb.disabled=false;\n' +
+'  }\n' +
+'}\n\n' +
+
+'function setState(mode,msg){\n' +
+'  var el=document.getElementById("state");\n' +
+'  if(mode==="done"){el.className="hidden";document.getElementById("dash").style.display="block";return;}\n' +
+'  el.className="";document.getElementById("dash").style.display="none";\n' +
+'  document.getElementById("st-title").textContent=mode==="error"?"Could not load data":"Loading '+clientName+' PR data\u2026";\n' +
+'  document.getElementById("st-msg").textContent=mode==="error"?"":"Connecting to Google Sheets\u2026";\n' +
+'  var err=document.getElementById("st-err");err.style.display=mode==="error"?"block":"none";if(msg)err.textContent=msg;\n' +
+'  document.getElementById("st-steps").style.display=mode==="error"?"block":"none";\n' +
+'  document.getElementById("retry-btn").style.display=mode==="error"?"block":"none";\n' +
+'  document.querySelector(".spinner").style.display=mode==="error"?"none":"block";\n' +
+'}\n\n' +
+
+'function getWeek(r){\n' +
+'  var w=g(r[1]);\n' +
+'  if(w.match(/^W\\d+$/))return w;\n' +
+'  var d=new Date(g(r[0]));\n' +
+'  if(isNaN(d))return"";\n' +
+'  var t=new Date(d);t.setDate(t.getDate()+3-(t.getDay()+6)%7);\n' +
+'  var w1=new Date(t.getFullYear(),0,4);\n' +
+'  return"W"+String(1+Math.round(((t-w1)/86400000-3+(w1.getDay()+6)%7)/7)).padStart(2,"0");\n' +
+'}\n\n' +
+
+'function render(arts,spkList,themeList,journoList,pubList,outputs,sovData,scData){\n' +
+'  var total=arts.length;\n' +
+'  var artWeeks=arts.map(getWeek);\n' +
+'  var weeks=[];\n' +
+'  artWeeks.forEach(function(w){if(w&&weeks.indexOf(w)<0)weeks.push(w);});\n' +
+'  weeks.sort();\n' +
+'  var pos=arts.filter(function(r){return g(r[6])==="Positive";}).length;\n' +
+'  var bal=arts.filter(function(r){return g(r[6])==="Balanced";}).length;\n' +
+'  var neg=arts.filter(function(r){return g(r[6])==="Negative";}).length;\n' +
+'  var spkM=arts.filter(function(r){return g(r[10]);}).length;\n' +
+'  var prY=arts.filter(function(r){return g(r[14])==="Yes";}).length;\n' +
+'  var tierY=arts.filter(function(r){return g(r[15])==="Yes";}).length;\n\n' +
+
+'  set("k-art",total);\n' +
+'  set("k-sent",pct(pos,total)+"%");\n' +
+'  set("k-spk",pct(spkM,total)+"%");\n' +
+'  set("k-pr",pct(prY,total)+"%");\n' +
+'  set("k-tier",tierY);\n' +
+'  set("hdr-meta",total+" articles \xB7 "+new Set(arts.map(function(r){return g(r[3]);})).size+" publications \xB7 Updated "+new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}));\n\n' +
+
+'  if(has("result-snapshot"))renderSnapshot(arts,outputs,total,pos,tierY);\n' +
+'  if(has("outputs-tracker"))renderOutputs(outputs);\n' +
+'  if(has("volume"))renderVolume(weeks,arts,artWeeks);\n' +
+'  if(has("sentiment-donut"))renderSentDonut(pos,bal,neg,total);\n' +
+'  if(has("sources"))renderSources(arts,total);\n' +
+'  if(has("top-tier"))renderTopTier(tierY,total);\n' +
+'  if(has("sentiment-trend"))renderSentTrend(weeks,arts,artWeeks);\n' +
+'  if(has("activity-drivers"))renderActivity(arts);\n' +
+'  if(has("spokespeople")||has("most-quoted"))renderSpk(arts,spkList);\n' +
+'  if(has("journalists"))renderJournalists(journoList,arts);\n' +
+'  if(has("publications"))renderPubs(arts);\n' +
+'  if(has("themes"))renderThemes(themeList,arts);\n' +
+'  if(has("sov"))renderSOV(sovData);\n' +
+'  if(has("sentiment-comparison"))renderSentComp(scData);\n' +
+'  if(has("article-log"))renderLog(arts);\n\n' +
+'  set("foot-ts","Refreshed "+new Date().toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})+" \xB7 Powered by '+agency+'");\n' +
+'}\n\n' +
+
+'function renderSnapshot(arts,outputs,total,pos,tierY){\n' +
+'  var dataRows=outputs.slice(2);\n' +
+'  var snap=[];\n' +
+'  var actRows=dataRows.filter(function(r){return g(r[0])&&g(r[0]).indexOf("RESULT")<0&&g(r[0]).indexOf("Note")<0&&g(r[0]).indexOf("TOTAL")<0;});\n' +
+'  if(actRows.length>0){\n' +
+'    actRows.slice(0,3).forEach(function(r){\n' +
+'      var ytd=n(r[14])||actRows.reduce(function(s,_,i){return s;},0);\n' +
+'      var cells=Array.from({length:12},function(_,i){return n(r[i+2]);});\n' +
+'      var delivered=cells.reduce(function(a,b){return a+b;},0);\n' +
+'      snap.push({val:delivered,lbl:g(r[0])});\n' +
+'    });\n' +
+'  }\n' +
+'  snap.push({val:total,lbl:"Total Coverage"});\n' +
+'  snap.push({val:tierY,lbl:"Top Tier & Broadcast Hits"});\n' +
+'  snap.push({val:pct(pos,total)+"%",lbl:"Positive Sentiment"});\n' +
+'  var html="";\n' +
+'  snap.forEach(function(s,i){\n' +
+'    if(i>0&&i<snap.length)html+=\'<div class="snap-arrow">&rsaquo;</div>\';\n' +
+'    html+=\'<div class="snap-card"><div class="snap-val">\'+s.val+\'</div><div class="snap-lbl">\'+s.lbl+\'</div></div>\';\n' +
+'  });\n' +
+'  document.getElementById("snap-grid").innerHTML=html;\n' +
+'}\n\n' +
+
+'function renderOutputs(outputs){\n' +
+'  var rows=outputs.slice(2).filter(function(r){return g(r[0])&&g(r[0]).indexOf("RESULT")<0&&g(r[0]).indexOf("Note")<0;});\n' +
+'  var months=[];\n' +
+'  if(outputs[1])for(var m=2;m<14;m++){var h=g(outputs[1][m]);if(h)months.push({h:h,ci:m});}\n' +
+'  var thead=document.getElementById("out-thead");\n' +
+'  var tbody=document.getElementById("out-tbody");\n' +
+'  var thRow=\'<tr><th>Activity</th><th class="num">Monthly Target</th>\';\n' +
+'  months.forEach(function(m){thRow+=\'<th class="num">\'+m.h+\'</th>\';});\n' +
+'  thRow+=\'<th class="num">YTD Delivered</th><th class="num">YTD Target</th><th class="num">% vs Target</th></tr>\';\n' +
+'  thead.innerHTML=thRow;\n' +
+'  var tbHtml="";\n' +
+'  rows.forEach(function(r){\n' +
+'    if(g(r[0])==="TOTAL"){tbHtml+=\'<tr style="background:#f0fdf4;font-weight:700"><td>\'+g(r[0])+\'</td>\';}\n' +
+'    else{tbHtml+=\'<tr><td>\'+g(r[0])+\'</td>\';}\n' +
+'    tbHtml+=\'<td class="num">\'+g(r[1])+\'</td>\';\n' +
+'    months.forEach(function(m){tbHtml+=\'<td class="num">\'+( n(r[m.ci])>0?n(r[m.ci]):\'\' )+\'</td>\';});\n' +
+'    var ytd=n(r[14]),ytgt=n(r[15]),pctVal=ytgt>0?Math.round(ytd/ytgt*100):null;\n' +
+'    var pill=pctVal===null?\'\':(pctVal>=100?\'pill-green\':pctVal>=75?\'pill-amber\':\'pill-red\');\n' +
+'    tbHtml+=\'<td class="num"><strong>\'+ytd+\'</strong></td><td class="num">\'+ytgt+\'</td><td class="num">\'+(pctVal!==null?\'<span class="pill \'+pill+\'">\'+pctVal+\'%</span>\':\'&mdash;\')+\'</td></tr>\';\n' +
+'  });\n' +
+'  tbody.innerHTML=tbHtml;\n' +
+'}\n\n' +
+
+'function mkChart(id,type,data,opts,h,plugins){\n' +
+'  if(charts[id])charts[id].destroy();\n' +
+'  var el=document.getElementById(id);if(h)el.height=h;\n' +
+'  charts[id]=new Chart(el.getContext("2d"),{type:type,data:data,options:Object.assign({responsive:true},opts),plugins:plugins});\n' +
+'}\n\n' +
+
+'function renderVolume(weeks,arts,artWeeks){\n' +
+'  mkChart("cVol","line",{labels:weeks,datasets:[\n' +
+'    {label:"Proactive",data:weeks.map(function(w){return arts.filter(function(_,i){return artWeeks[i]===w&&g(arts[i][7])==="Proactive";}).length;}),borderColor:BRAND,backgroundColor:"rgba(0,0,0,.06)",tension:.4,fill:true,pointRadius:3,borderWidth:2},\n' +
+'    {label:"Organic",data:weeks.map(function(w){return arts.filter(function(_,i){return artWeeks[i]===w&&g(arts[i][7])==="Organic";}).length;}),borderColor:"#1e3a5f",backgroundColor:"rgba(30,58,95,.04)",tension:.4,fill:true,pointRadius:3,borderWidth:2,borderDash:[4,3]}\n' +
+'  ]},{plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:"#eee"},beginAtZero:true,ticks:{stepSize:1}}}},130);\n' +
+'}\n\n' +
+
+'function renderSentDonut(pos,bal,neg,total){\n' +
+'  var pp=pct(pos,total);\n' +
+'  mkChart("cSent","doughnut",{labels:["Positive","Balanced","Negative"],datasets:[{data:[pos,bal,neg],backgroundColor:["#16a34a","#2563eb","#dc2626"],borderWidth:2,borderColor:"#fff",hoverOffset:4}]},\n' +
+'    {cutout:"68%",plugins:{legend:{display:false}}},130,\n' +
+'    [{id:"ct",beforeDraw:function(chart){\n' +
+'      var ca=chart.chartArea,ctx=chart.ctx;\n' +
+'      ctx.save();\n' +
+'      ctx.font="bold 20px \'DM Serif Display\',serif";ctx.fillStyle="#1a1a1a";ctx.textAlign="center";ctx.textBaseline="middle";\n' +
+'      ctx.fillText(pp+"%",ca.left+ca.width/2,ca.top+ca.height/2-8);\n' +
+'      ctx.font="9px \'DM Sans\',sans-serif";ctx.fillStyle="#737370";\n' +
+'      ctx.fillText("Positive",ca.left+ca.width/2,ca.top+ca.height/2+12);\n' +
+'      ctx.restore();\n' +
+'    }}]);\n' +
+'}\n\n' +
+
+'function renderSources(arts,total){\n' +
+'  var nat=arts.filter(function(r){return g(r[5])==="National";}).length;\n' +
+'  var trd=arts.filter(function(r){return g(r[5])==="Trade";}).length;\n' +
+'  var reg=arts.filter(function(r){return g(r[5])==="Regional";}).length;\n' +
+'  set("src-nat",pct(nat,total)+"%");set("src-trd",pct(trd,total)+"%");set("src-reg",pct(reg,total)+"%");\n' +
+'  var hl=arts.filter(function(r){return g(r[8])==="Headline";}).length;\n' +
+'  var lp=arts.filter(function(r){return g(r[8])==="Lead paragraph";}).length;\n' +
+'  var at=arts.filter(function(r){return g(r[8])==="Article text";}).length;\n' +
+'  var cmax=Math.max(hl,lp,at,1);\n' +
+'  document.getElementById("cite-bars").innerHTML=\n' +
+'    [["Headline",hl,"var(--brand)"],["Lead paragraph",lp,"#1e3a5f"],["Article text",at,"#0d9488"]].map(function(x){\n' +
+'      return \'<div class="brow"><div class="blbl" style="width:80px;text-align:left;font-size:9px">\'+x[0]+\'</div><div class="btrk"><div class="bfil" style="width:\'+Math.round(x[1]/cmax*100)+\'%;background:\'+x[2]+\'"></div></div><div class="bval">\'+pct(x[1],total)+\'%</div></div>\';\n' +
+'    }).join("");\n' +
+'}\n\n' +
+
+'function renderTopTier(tierY,total){\n' +
+'  var other=total-tierY;\n' +
+'  var max=Math.max(tierY,other,1);\n' +
+'  document.getElementById("tier-bars").innerHTML=\n' +
+'    [["Top Tier",tierY,BRAND],["All Other",other,"#737370"]].map(function(x){\n' +
+'      return \'<div class="brow"><div class="blbl" style="width:70px;text-align:left">\'+x[0]+\'</div><div class="btrk"><div class="bfil" style="width:\'+Math.round(x[1]/max*100)+\'%;background:\'+x[2]+\'"></div></div><div class="bval">\'+x[1]+\'</div></div>\';\n' +
+'    }).join("");\n' +
+'}\n\n' +
+
+'function renderSentTrend(weeks,arts,artWeeks){\n' +
+'  mkChart("cTrend","bar",{labels:weeks,datasets:[\n' +
+'    {label:"Positive",data:weeks.map(function(w){return arts.filter(function(_,i){return artWeeks[i]===w&&g(arts[i][6])==="Positive";}).length;}),backgroundColor:"#16a34a"},\n' +
+'    {label:"Balanced",data:weeks.map(function(w){return arts.filter(function(_,i){return artWeeks[i]===w&&g(arts[i][6])==="Balanced";}).length;}),backgroundColor:"#2563eb"},\n' +
+'    {label:"Negative",data:weeks.map(function(w){return arts.filter(function(_,i){return artWeeks[i]===w&&g(arts[i][6])==="Negative";}).length;}),backgroundColor:"#dc2626"}\n' +
+'  ]},{plugins:{legend:{display:false}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:"#eee"},beginAtZero:true,ticks:{stepSize:1}}}},80);\n' +
+'}\n\n' +
+
+'function renderActivity(arts){\n' +
+'  var cm={};\n' +
+'  arts.forEach(function(r){var a=g(r[12]);if(a)cm[a]=(cm[a]||0)+1;});\n' +
+'  var cl=Object.keys(cm),cv=cl.map(function(k){return cm[k];});\n' +
+'  mkChart("cAct","doughnut",{labels:cl,datasets:[{data:cv,backgroundColor:COLORS.slice(0,cv.length),borderWidth:2,borderColor:"#fff"}]},\n' +
+'    {cutout:"50%",plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:10,padding:6,font:{size:9}}}}},190);\n' +
+'}\n\n' +
+
+'function renderSpk(arts,spkList){\n' +
+'  var sm={};\n' +
+'  arts.forEach(function(r){var sp=g(r[10]);if(sp)sm[sp]=(sm[sp]||0)+1;});\n' +
+'  var ss=Object.entries(sm).sort(function(a,b){return b[1]-a[1];}).slice(0,7);\n' +
+'  var smax=ss.length?ss[0][1]:1;\n' +
+'  if(has("spokespeople")){\n' +
+'    document.getElementById("spk-bars").innerHTML=ss.map(function(x){\n' +
+'      return \'<div class="brow"><div class="blbl">\'+x[0]+\'</div><div class="btrk"><div class="bfil" style="width:\'+Math.round(x[1]/smax*100)+\'%;background:var(--brand)"></div></div><div class="bval">\'+x[1]+\'</div></div>\';\n' +
+'    }).join("");\n' +
+'  }\n' +
+'  if(has("most-quoted")&&ss.length){\n' +
+'    var tnm=ss[0][0],tc=ss[0][1];\n' +
+'    var tot=Object.values(sm).reduce(function(a,b){return a+b;},0);\n' +
+'    var fa=arts.find(function(r){return g(r[10])===tnm;})||arts[0];\n' +
+'    var inf=spkList.find(function(x){return x.name===tnm;})||{};\n' +
+'    set("q-pct",pct(tc,tot)+"%");set("q-nm",tnm);set("q-tl",inf.title||"");\n' +
+'    set("q-av",tnm.split(" ").map(function(w){return w[0]||"";}).join("").toUpperCase().slice(0,2));\n' +
+'    set("q-act",fa?g(fa[12]):"");set("q-src",fa?g(fa[3])+" \xB7 "+g(fa[0]):"");\n' +
+'  }\n' +
+'}\n\n' +
+
+'function renderJournalists(journoList,arts){\n' +
+'  var rows=journoList.filter(function(nm){return arts.some(function(r){return g(r[4])===nm;});}).slice(0,7);\n' +
+'  document.getElementById("j-rows").innerHTML=rows.map(function(nm){\n' +
+'    return mbar(nm,arts.filter(function(r){return g(r[4])===nm&&g(r[6])==="Positive";}).length,arts.filter(function(r){return g(r[4])===nm&&g(r[6])==="Balanced";}).length,arts.filter(function(r){return g(r[4])===nm&&g(r[6])==="Negative";}).length);\n' +
+'  }).join("");\n' +
+'}\n\n' +
+
+'function renderPubs(arts){\n' +
+'  var pm={};\n' +
+'  arts.forEach(function(r){var p=g(r[3]);if(p)pm[p]=(pm[p]||0)+1;});\n' +
+'  var ps=Object.entries(pm).sort(function(a,b){return b[1]-a[1];}).slice(0,7);\n' +
+'  document.getElementById("m-rows").innerHTML=ps.map(function(x){\n' +
+'    return mbar(x[0],arts.filter(function(r){return g(r[3])===x[0]&&g(r[6])==="Positive";}).length,arts.filter(function(r){return g(r[3])===x[0]&&g(r[6])==="Balanced";}).length,arts.filter(function(r){return g(r[3])===x[0]&&g(r[6])==="Negative";}).length);\n' +
+'  }).join("");\n' +
+'}\n\n' +
+
+'function renderThemes(themeList,arts){\n' +
+'  var rows=themeList.map(function(t){return{t:t,v:arts.filter(function(r){return g(r[13])===t;}).length};}).filter(function(x){return x.v>0;}).sort(function(a,b){return b.v-a.v;});\n' +
+'  var tmax=rows.length?rows[0].v:1;\n' +
+'  document.getElementById("t-rows").innerHTML=rows.map(function(x,i){\n' +
+'    return \'<div class="brow"><div class="blbl" style="width:110px;text-align:left">\'+x.t+\'</div><div class="btrk"><div class="bfil" style="width:\'+Math.round(x.v/tmax*100)+\'%;background:\'+COLORS[i%COLORS.length]+\'"></div></div><div class="bval">\'+x.v+\'</div></div>\';\n' +
+'  }).join("");\n' +
+'}\n\n' +
+
+'function renderSOV(sovData){\n' +
+'  var sl=sovData.map(function(r){return g(r[0]);}),sv=sovData.map(function(r){return n(r[1]);});\n' +
+'  mkChart("cSov","doughnut",{labels:sl,datasets:[{data:sv,backgroundColor:COLORS.slice(0,sl.length),borderWidth:2,borderColor:"#fff"}]},\n' +
+'    {cutout:"55%",plugins:{legend:{display:false}}},110);\n' +
+'  document.getElementById("sov-leg").innerHTML=sl.map(function(l,i){\n' +
+'    return \'<div class="sov-row"><div class="sov-dot" style="background:\'+COLORS[i]+\'"></div><span style="width:72px;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">\'+l+\'</span><div class="sov-trk"><div class="sov-fil" style="width:\'+Math.min(sv[i]*2,100)+\'%;background:\'+COLORS[i]+\'"></div></div><div class="sov-val">\'+sv[i]+\'%</div></div>\';\n' +
+'  }).join("");\n' +
+'}\n\n' +
+
+'function renderSentComp(scData){\n' +
+'  document.getElementById("sc-rows").innerHTML=scData.map(function(r,i){\n' +
+'    var co=g(r[0]),p2=n(r[1]),b2=n(r[2]),n2=n(r[3]),ic=i===0;\n' +
+'    return \'<div style="margin-bottom:8px"><div style="font-size:9px;font-weight:\'+( ic?700:500)+\';color:\'+( ic?"var(--brand)":"var(--muted)")+\';margin-bottom:3px">\'+co+\'</div>\'+\n' +
+'      \'<div style="display:flex;gap:2px;height:14px;border-radius:3px;overflow:hidden">\'+\n' +
+'      (p2?\'<div style="width:\'+p2+\'%;background:var(--pos);display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700">\'+p2+\'%</div>\':\'\')+\n' +
+'      (b2?\'<div style="width:\'+b2+\'%;background:var(--bal);display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700">\'+b2+\'%</div>\':\'\')+\n' +
+'      (n2?\'<div style="width:\'+n2+\'%;background:var(--neg);display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700">\'+n2+\'%</div>\':\'\')+\n' +
+'      \'</div></div>\';\n' +
+'  }).join("");\n' +
+'}\n\n' +
+
+'function renderLog(arts){\n' +
+'  var sc={Positive:\'pill-green\',Balanced:\'pill-amber\',Negative:\'pill-red\'};\n' +
+'  document.getElementById("art-body").innerHTML=arts.map(function(a){\n' +
+'    return \'<tr><td style="white-space:nowrap;color:var(--muted)">\'+g(a[0])+\'</td><td style="max-width:240px">\'+g(a[2])+\'</td><td style="white-space:nowrap">\'+g(a[3])+\'</td><td style="white-space:nowrap;color:var(--muted)">\'+g(a[4])+\'</td><td>\'+g(a[12])+\'</td><td><span class="pill \'+( sc[g(a[6])]||\'pill-green\')+\'">\'+g(a[6])+\'</span></td><td style="color:var(--muted)">\'+g(a[8])+\'</td><td style="text-align:center">\'+( g(a[15])==="Yes"?"⭐":"")+\'</td><td style="white-space:nowrap;color:var(--muted)">\'+g(a[10])+\'</td></tr>\';\n' +
+'  }).join("");\n' +
+'}\n\n' +
+
+'function mbar(nm,p,b,ng){\n' +
+'  var t=p+b+ng||1;\n' +
+'  return \'<div class="jrow"><div class="jnm" title="\'+nm+\'">\'+nm+\'</div><div class="mb">\'+\n' +
+'    (p?\'<div class="ms" style="width:\'+Math.round(p/t*100)+\'%;background:var(--pos)">\'+p+\'</div>\':\'\')+\n' +
+'    (b?\'<div class="ms" style="width:\'+Math.round(b/t*100)+\'%;background:var(--bal)">\'+b+\'</div>\':\'\')+\n' +
+'    (ng?\'<div class="ms" style="width:\'+Math.round(ng/t*100)+\'%;background:var(--neg)">\'+ng+\'</div>\':\'\')+\n' +
+'    \'</div></div>\';\n' +
+'}\n\n' +
+
+'init();\n' +
+'<\/script>\n</body>\n</html>';
+}
+
+renderPanelSelector();
+updateColor('#1a6b40');
+</script>
+</body>
+</html>
