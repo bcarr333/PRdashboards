@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MHP · Sheet Diagnostic</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #f5f5f3; padding: 32px; max-width: 700px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p { color: #666; font-size: 13px; margin-bottom: 24px; }
+  .field { margin-bottom: 12px; }
+  label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #666; margin-bottom: 5px; }
+  input { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 7px; font-size: 13px; font-family: inherit; outline: none; }
+  input:focus { border-color: #1a6b40; }
+  button { background: #1a6b40; color: white; border: none; border-radius: 7px; padding: 11px 24px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  button:hover { background: #0f4024; }
+  #results { margin-top: 24px; }
+  .result { background: white; border: 1px solid #e5e5e3; border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px; }
+  .icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .tab-name { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+  .tab-detail { font-size: 11px; color: #666; line-height: 1.5; }
+  .tab-preview { font-size: 10px; color: #999; margin-top: 4px; font-family: monospace; background: #f9f9f7; padding: 4px 8px; border-radius: 4px; }
+  .checking { opacity: .5; }
+  #summary { background: #1a6b40; color: white; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 13px; display: none; }
+</style>
+</head>
+<body>
+
+<h1>🔍 MHP Sheet Diagnostic</h1>
+<p>Paste your Google Sheet URL below and click Test. This will check each required tab and tell you exactly what's working.</p>
+
+<div class="field">
+  <label>Google Sheet URL</label>
+  <input type="text" id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/..." />
+</div>
+<button onclick="runDiagnostic()">Run Diagnostic</button>
+
+<div id="results"></div>
+
+<script>
+const REQUIRED_TABS = [
+  { name: 'RAW_DATA', required: true, desc: 'Your article log' },
+  { name: 'LISTS', required: true, desc: 'Spokespeople, themes, journalists' },
+  { name: 'OUTPUTS', required: false, desc: 'Monthly KPI tracker' },
+  { name: 'ShareOfVoice', required: false, desc: 'Competitor SOV data' },
+  { name: 'SentimentComparison', required: false, desc: 'Competitor sentiment' },
+];
+
+function extractId(url) {
+  const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : url.trim();
+}
+
+async function testTab(sheetId, tab) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab.name)}`;
+  try {
+    const timeout = new Promise((_,reject) => setTimeout(() => reject(new Error('Timed out (8s)')), 8000));
+    const r = await Promise.race([fetch(url), timeout]);
+
+    if (!r.ok) return { ok: false, error: `HTTP ${r.status} — tab may not exist or sheet is private` };
+
+    const text = await r.text();
+
+    if (text.includes('Sign in') || text.includes('accounts.google')) {
+      return { ok: false, error: 'Sheet is not public — Share → Anyone with the link → Viewer' };
+    }
+    if (text.toLowerCase().includes('<html') && text.length < 500) {
+      return { ok: false, error: `Tab "${tab.name}" not found — check the name matches exactly (case sensitive)` };
+    }
+
+    const rows = text.trim().split('\n').filter(r => r.trim());
+    const dataRows = rows.length - 2; // subtract title + header rows
+    const firstCell = rows[0]?.split(',')[0]?.replace(/"/g,'').substring(0,40);
+
+    return { ok: true, rowCount: Math.max(dataRows, 0), preview: firstCell };
+  } catch(e) {
+    if (e.name === 'AbortError') return { ok: false, error: 'Timed out (8s) — sheet may not be public or tab is very large' };
+    return { ok: false, error: e.message };
+  }
+}
+
+async function runDiagnostic() {
+  const url = document.getElementById('sheet-url').value.trim();
+  if (!url) { alert('Please paste your sheet URL first'); return; }
+
+  const sheetId = extractId(url);
+  const resultsEl = document.getElementById('results');
+  resultsEl.innerHTML = '<div id="summary" style="display:block;background:#555">⏳ Testing connection to all tabs…</div>';
+
+  let allOk = true;
+  let resultHTML = '';
+
+  for (const tab of REQUIRED_TABS) {
+    const result = await testTab(sheetId, tab);
+    const icon = result.ok ? '✅' : (tab.required ? '❌' : '⚠️');
+    const status = result.ok
+      ? `<div class="tab-detail">Found ${result.rowCount} data rows</div><div class="tab-preview">First cell: "${result.preview}"</div>`
+      : `<div class="tab-detail" style="color:#dc2626">${result.error}</div>`;
+    const badge = tab.required ? '' : ' <span style="font-size:9px;background:#eee;padding:1px 6px;border-radius:8px;font-weight:400">optional</span>';
+
+    resultHTML += `<div class="result">
+      <div class="icon">${icon}</div>
+      <div>
+        <div class="tab-name">${tab.name}${badge}</div>
+        <div class="tab-detail" style="color:#999">${tab.desc}</div>
+        ${status}
+      </div>
+    </div>`;
+
+    if (!result.ok && tab.required) allOk = false;
+  }
+
+  const summary = document.getElementById('summary') || document.createElement('div');
+  resultsEl.innerHTML = resultHTML;
+  resultsEl.insertAdjacentHTML('afterbegin',
+    `<div id="summary" style="display:block;background:${allOk ? '#1a6b40' : '#dc2626'};color:white;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px">
+      ${allOk
+        ? '✅ All required tabs found and accessible. The dashboard should load.'
+        : '❌ One or more required tabs failed. Fix the issues above and try again.'}
+    </div>`
+  );
+}
+</script>
+</body>
+</html>
