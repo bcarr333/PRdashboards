@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Artio · PR Dashboard 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Aptos:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#1a6b40;--brand-d:#0f4024;--brand-l:#f0fdf4;
+  --bg:#f5f5f3;--card:#fff;--border:#e5e5e3;
+  --text:#1a1a1a;--muted:#737370;
+  --pos:#16a34a;--bal:#2563eb;--neg:#dc2626;
+  --gold:#d97706;--teal:#0d9488;--navy:#1e3a5f;
+}
+body{font-family:'Aptos','Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:12px;line-height:1.4;padding:20px}
+
+/* ── LOADING STATE ─────────────────────────────────────────────────────── */
+#state{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:999}
+#state.gone{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite}
+#state h2{font-size:20px;font-weight:600}
+#state-err{display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 18px;font-size:11px;color:var(--neg);max-width:500px;line-height:1.7;text-align:center}
+.retry-btn{background:var(--brand);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:none}
+
+/* ── HEADER ────────────────────────────────────────────────────────────── */
+.hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid var(--text)}
+.hdr-title{font-size:30px;font-weight:700;line-height:1.1}
+.hdr-sub{font-size:10px;color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.1em}
+.hdr-r{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:var(--brand);color:#fff}
+.bdot{width:6px;height:6px;background:#4ade80;border-radius:50%;animation:pulse 2s infinite}
+.hdr-meta{font-size:10px;color:var(--muted);text-align:right}
+.ref-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:10px;font-weight:600;color:var(--brand);cursor:pointer;font-family:inherit;transition:all .2s}
+.ref-btn:hover{background:var(--brand);color:#fff;border-color:var(--brand)}
+.ref-btn:disabled{opacity:.4;pointer-events:none}
+
+/* ── RESULT SNAPSHOT ───────────────────────────────────────────────────── */
+.snap{display:flex;align-items:center;flex-wrap:wrap;gap:0;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px}
+.snap-item{flex:1;min-width:140px;padding:18px 20px;text-align:center;border-right:1px solid var(--border);position:relative}
+.snap-item:last-child{border-right:none}
+.snap-val{font-size:36px;font-weight:700;color:var(--brand);line-height:1}
+.snap-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:5px;line-height:1.4}
+.snap-arr{font-size:18px;color:var(--border);position:absolute;right:-10px;top:50%;transform:translateY(-50%);z-index:1}
+
+/* ── KPI ROW ───────────────────────────────────────────────────────────── */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.kpi-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.kpi-val{font-size:24px;font-weight:700;line-height:1}
+.kpi-lbl{font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-top:3px}
+
+/* ── GRID ──────────────────────────────────────────────────────────────── */
+.grid{display:grid;gap:12px;margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;overflow:hidden}
+.ct{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+
+/* ── BARS ──────────────────────────────────────────────────────────────── */
+.brow{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.blbl{font-size:10px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.btrk{flex:1;height:15px;background:#eef0ed;border-radius:3px;overflow:hidden}
+.bfil{height:100%;border-radius:3px}
+.bval{font-size:10px;font-weight:700;width:26px;text-align:right;flex-shrink:0}
+
+/* ── MULTI BARS ────────────────────────────────────────────────────────── */
+.jrow{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.jnm{font-size:10px;width:82px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mb{display:flex;gap:2px;flex:1}
+.ms{height:14px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700;min-width:14px}
+
+/* ── SOV ───────────────────────────────────────────────────────────────── */
+.sov-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.sov-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.sov-trk{flex:1;height:9px;background:#eef0ed;border-radius:2px;overflow:hidden}
+.sov-fil{height:100%;border-radius:2px}
+.sov-val{font-size:10px;font-weight:700;width:28px;text-align:right}
+
+/* ── SOURCE CELLS ──────────────────────────────────────────────────────── */
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:12px}
+.scell{padding:8px;border-radius:6px;text-align:center;color:#fff}
+.spct{font-size:18px;font-weight:700;line-height:1}
+.slbl{font-size:8px;opacity:.85;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+
+/* ── MOST ACTIVE ───────────────────────────────────────────────────────── */
+.qcard{background:var(--brand-l);border:1px solid #bbf7d0;border-radius:8px;padding:12px}
+.qpct{font-size:34px;font-weight:700;color:var(--brand);line-height:1}
+.qperson{display:flex;align-items:center;gap:8px;margin-top:10px}
+.qav{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--teal));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0}
+.qnm{font-weight:700;font-size:12px}
+.qtl{font-size:10px;color:var(--muted)}
+.qact{font-size:9px;color:var(--muted);font-style:italic;margin-top:8px;line-height:1.6;border-left:2px solid var(--brand);padding-left:8px}
+.qsrc{font-size:9px;color:var(--teal);margin-top:6px;font-weight:500}
+
+.pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700}
+.pg{background:#dcfce7;color:#166534}
+.pa{background:#fef3c7;color:#92400e}
+.pr{background:#fee2e2;color:#991b1b}
+
+/* ── OUTPUT CARDS ──────────────────────────────────────────────────────────── */
+.out-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.out-card-icon{font-size:18px;margin-bottom:6px}
+.out-card-name{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px;line-height:1.4}
+.out-card-nums{display:flex;align-items:baseline;gap:4px;margin-bottom:8px}
+.out-card-delivered{font-size:30px;font-weight:700;color:var(--text);line-height:1}
+.out-card-target{font-size:11px;color:var(--muted)}
+.out-prog-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:6px}
+.out-prog-fill{height:100%;border-radius:3px;transition:width .8s ease}
+.out-card-status{font-size:9px;font-weight:700}
+
+/* ── ARTICLE LOG ───────────────────────────────────────────────────────── */
+.art-table{width:100%;border-collapse:collapse;font-size:10px}
+.art-table th{background:var(--brand);color:#fff;padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.art-table td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.art-table tr:hover td{background:#f9faf8}
+.art-table td.hl{max-width:260px}
+
+/* ── LEGEND ────────────────────────────────────────────────────────────── */
+.leg{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)}
+.ld{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+/* ── FOOTER ────────────────────────────────────────────────────────────── */
+.foot{margin-top:16px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:9px;color:var(--muted)}
+.fbrand{font-size:15px;font-weight:700;color:var(--text)}
+</style>
+</head>
+<body>
+
+<!-- LOADING / ERROR STATE -->
+<div id="state">
+  <div class="spinner" id="spinner"></div>
+  <h2 id="state-title">Loading Artio PR data…</h2>
+  <p id="state-sub" style="font-size:12px;color:var(--muted)">Connecting to Google Sheets</p>
+  <div id="state-err"></div>
+  <button class="retry-btn" id="retry-btn" onclick="init()">↻ Try again</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dash" style="display:none">
+
+<!-- HEADER -->
+<div class="hdr">
+  <div>
+    <div class="hdr-title">Artio · PR Dashboard</div>
+    <div class="hdr-sub">Media Intelligence &amp; Coverage Analysis · 2026</div>
+  </div>
+  <div class="hdr-r">
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="badge"><span class="bdot"></span>Live · Google Sheets</span>
+      <button class="ref-btn" id="ref-btn" onclick="init()">↻ Refresh</button>
+    </div>
+    <div class="hdr-meta" id="hdr-meta">—</div>
+  </div>
+</div>
+
+<!-- RESULT SNAPSHOT -->
+<div class="snap" id="snap-row"></div>
+
+<!-- KPI ROW -->
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-icon" style="background:var(--brand-l)">📰</div><div><div class="kpi-val" id="k-art">—</div><div class="kpi-lbl">Relevant Articles</div></div></div>
+  <div class="kpi"><div class="kpi-icon" style="background:#fefce8">📊</div><div><div class="kpi-val" id="k-sent" style="color:var(--pos)">—</div><div class="kpi-lbl">Positive Sentiment</div></div></div>
+  <div class="kpi"><div class="kpi-icon" style="background:#eff6ff">👤</div><div><div class="kpi-val" id="k-spk" style="color:var(--navy)">—</div><div class="kpi-lbl">Spokesperson Visibility</div></div></div>
+  <div class="kpi"><div class="kpi-icon" style="background:var(--brand-l)">🎯</div><div><div class="kpi-val" id="k-pr" style="color:var(--brand)">—</div><div class="kpi-lbl">PR Influenced</div></div></div>
+  <div class="kpi"><div class="kpi-icon" style="background:#f0fdfa">⭐</div><div><div class="kpi-val" id="k-tier" style="color:var(--teal)">—</div><div class="kpi-lbl">Top Tier Hits</div></div></div>
+</div>
+
+<!-- OUTPUTS TRACKER -->
+<div class="grid" style="grid-template-columns:1fr">
+  <div class="card">
+    <div class="ct">Outputs Tracker — YTD Delivery vs Target</div>
+    <div id="out-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:4px"></div>
+  </div>
+</div>
+
+<!-- VOLUME + SENTIMENT + SOURCES -->
+<div class="grid" style="grid-template-columns:2fr 1fr 1fr">
+  <div class="card">
+    <div class="ct">Coverage Volume — Articles by Week</div>
+    <canvas id="cVol" height="130"></canvas>
+    <div class="leg" style="margin-top:10px">
+      <div class="li"><div class="ld" style="background:var(--brand)"></div>Proactive</div>
+      <div class="li"><div class="ld" style="background:var(--navy)"></div>Organic</div>
+    </div>
+  </div>
+  <div class="card" style="display:flex;flex-direction:column">
+    <div class="ct">Overall Sentiment</div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center">
+      <canvas id="cSent" width="130" height="130"></canvas>
+    </div>
+    <div class="leg" style="justify-content:center">
+      <div class="li"><div class="ld" style="background:var(--pos)"></div>Positive</div>
+      <div class="li"><div class="ld" style="background:var(--bal)"></div>Balanced</div>
+      <div class="li"><div class="ld" style="background:var(--neg)"></div>Negative</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Source Breakdown</div>
+    <div class="sgrid">
+      <div class="scell" style="background:var(--brand)"><div class="spct" id="src-nat">—</div><div class="slbl">National</div></div>
+      <div class="scell" style="background:var(--navy)"><div class="spct" id="src-trd">—</div><div class="slbl">Trade</div></div>
+      <div class="scell" style="background:var(--teal)"><div class="spct" id="src-reg">—</div><div class="slbl">Regional</div></div>
+    </div>
+    <div class="ct">Citation Prominence</div>
+    <div id="cite-bars"></div>
+  </div>
+</div>
+
+<!-- SENTIMENT TREND + TOP TIER -->
+<div class="grid" style="grid-template-columns:2fr 1fr">
+  <div class="card">
+    <div class="ct">Sentiment Trend — Weekly Breakdown</div>
+    <canvas id="cTrend" height="80"></canvas>
+    <div class="leg" style="margin-top:8px">
+      <div class="li"><div class="ld" style="background:var(--pos)"></div>Positive</div>
+      <div class="li"><div class="ld" style="background:var(--bal)"></div>Balanced</div>
+      <div class="li"><div class="ld" style="background:var(--neg)"></div>Negative</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Top Tier vs All Coverage</div>
+    <div id="tier-bars" style="margin-top:4px"></div>
+  </div>
+</div>
+
+<!-- ACTIVITY DRIVERS + SPOKESPEOPLE + MOST ACTIVE -->
+<div class="grid" style="grid-template-columns:1fr 1.4fr 1.6fr">
+  <div class="card">
+    <div class="ct">Coverage by Campaign</div>
+    <canvas id="cAct" height="190"></canvas>
+  </div>
+  <div class="card">
+    <div class="ct">Spokespeople — No. of Articles</div>
+    <div id="spk-bars" style="margin-top:4px"></div>
+  </div>
+  <div class="card">
+    <div class="ct">Most Active Spokesperson</div>
+    <div class="qcard">
+      <div class="qpct" id="q-pct">—</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:2px">of all spokesperson mentions</div>
+      <div class="qperson">
+        <div class="qav" id="q-av">—</div>
+        <div><div class="qnm" id="q-nm">—</div><div class="qtl" id="q-tl">—</div></div>
+      </div>
+      <div class="qact" id="q-act">—</div>
+      <div class="qsrc" id="q-src">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- JOURNALISTS + PUBLICATIONS + THEMES + SOV + SENTIMENT COMPARISON -->
+<div class="grid" style="grid-template-columns:1fr 1fr 0.8fr 1.2fr 1.6fr">
+  <div class="card"><div class="ct">Most Prolific Journalists</div><div id="j-rows"></div></div>
+  <div class="card"><div class="ct">Most Prolific Publications</div><div id="m-rows"></div></div>
+  <div class="card"><div class="ct">Themes</div><div id="t-rows"></div></div>
+  <div class="card">
+    <div class="ct">Share of Voice</div>
+    <canvas id="cSov" height="110"></canvas>
+    <div id="sov-leg" style="margin-top:8px"></div>
+  </div>
+  <div class="card"><div class="ct">Sentiment Comparison</div><div id="sc-rows"></div></div>
+</div>
+
+<!-- ARTICLE LOG -->
+<div class="grid" style="grid-template-columns:1fr">
+  <div class="card">
+    <div class="ct">Full Article Log</div>
+    <div style="overflow-x:auto">
+      <table class="art-table">
+        <thead><tr><th>Date</th><th>Headline</th><th>Publication</th><th>Journalist</th><th>Campaign</th><th>Sentiment</th><th>Top Tier</th><th>Citation</th><th>Spokesperson</th></tr></thead>
+        <tbody id="art-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="foot">
+  <div>
+    <div class="fbrand">Artio · PR Dashboard 2026</div>
+    <div style="margin-top:2px" id="foot-ts">Powered by MHP Group · Live from Google Sheets</div>
+  </div>
+  <div style="text-align:right">Confidential &amp; Proprietary</div>
+</div>
+</div><!-- end #dash -->
+
+<script>
+// ── CATCH ALL UNCAUGHT ERRORS ────────────────────────────────────────────────
+window.onerror = function(msg, src, line) {
+  showError('JavaScript error (line ' + line + '): ' + msg);
+  return true;
+};
+window.onunhandledrejection = function(e) {
+  showError('Unhandled promise error: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+};
+
+Chart.defaults.font.family = "'Aptos','Segoe UI',sans-serif";
+Chart.defaults.font.size = 10;
+Chart.defaults.color = '#737370';
+
+const SHEET = '1abl4nT4nipmrv4SvTGDouAZHPFnzLdz1jHWBZYJ3E0Y';
+const COLORS = ['#1a6b40','#1e3a5f','#0d9488','#d97706','#7c3aed','#dc2626','#0284c7','#be185d'];
+let charts = {};
+
+// ── FETCH ────────────────────────────────────────────────────────────────────
+function fetchTab(tab) {
+  var url = 'https://docs.google.com/spreadsheets/d/' + SHEET + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(tab);
+  return fetch(url).then(function(r) {
+    if (!r.ok) throw new Error('Tab "' + tab + '" returned ' + r.status);
+    return r.text();
+  }).then(function(t) {
+    if (t.indexOf('Sign in') > -1 || t.indexOf('accounts.google') > -1)
+      throw new Error('Sheet not public. Share → Anyone with the link → Viewer.');
+    return parseCSV(t);
+  });
+}
+
+function fetchOptional(tab) {
+  return fetchTab(tab).catch(function() { return []; });
+}
+
+function parseCSV(text) {
+  return text.trim().split('\n').map(function(line) {
+    var cells = [], cur = '', inQ = false;
+    for (var i = 0; i < line.length; i++) {
+      if (line[i] === '"') { inQ = !inQ; continue; }
+      if (line[i] === ',' && !inQ) { cells.push(cur.trim()); cur = ''; continue; }
+      cur += line[i];
+    }
+    cells.push(cur.trim());
+    return cells;
+  });
+}
+
+var s = function(v) { return String(v == null ? '' : v).trim(); };
+var n = function(v) { return parseFloat(s(v).replace(/[^0-9.\-]/g, '')) || 0; };
+var pct = function(a, b) { return Math.round(a / Math.max(b, 1) * 100); };
+var set = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+function init() {
+  showLoading();
+  var refBtn = document.getElementById('ref-btn');
+  if (refBtn) refBtn.disabled = true;
+
+  Promise.all([
+    fetchTab('RAW_DATA'),
+    fetchTab('LISTS'),
+    fetchOptional('OUTPUTS'),
+    fetchOptional('ShareOfVoice'),
+    fetchOptional('SentimentComparison')
+  ]).then(function(tabs) {
+    try {
+      var raw    = tabs[0].slice(2).filter(function(r) { return s(r[2]); });
+      var lr     = tabs[1].slice(2).filter(function(r) { return r.some(Boolean); });
+      var outputs= tabs[2];
+      var sovD   = tabs[3].slice(2).filter(function(r) { return s(r[0]) && s(r[0]).indexOf('Note') < 0; });
+      var scD    = tabs[4].slice(2).filter(function(r) { return s(r[0]) && s(r[0]).indexOf('Note') < 0; });
+
+      var spkList = lr.map(function(r) { return { name: s(r[0]), title: s(r[1]) }; })
+                     .filter(function(r) { return r.name && r.name.indexOf('Spokesperson') < 0 && r.name.indexOf('⬆') < 0; });
+      var themeList = lr.map(function(r) { return s(r[2]); }).filter(Boolean);
+      var journoList = lr.map(function(r) { return s(r[3]); }).filter(Boolean);
+
+      render(raw, spkList, themeList, journoList, outputs, sovD, scD);
+      showDash();
+    } catch(err) {
+      showError('Render error: ' + err.message + (err.stack ? '\n' + err.stack.split('\n').slice(0,3).join('\n') : ''));
+    }
+  }).catch(function(err) {
+    showError(err.message);
+  }).finally(function() {
+    if (refBtn) refBtn.disabled = false;
+  });
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+function showLoading() {
+  document.getElementById('state').className = '';
+  document.getElementById('dash').style.display = 'none';
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('state-title').textContent = 'Loading Artio PR data…';
+  document.getElementById('state-sub').textContent = 'Connecting to Google Sheets';
+  document.getElementById('state-err').style.display = 'none';
+  document.getElementById('retry-btn').style.display = 'none';
+}
+function showDash() {
+  document.getElementById('state').className = 'gone';
+  document.getElementById('dash').style.display = 'block';
+}
+function showError(msg) {
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('state-title').textContent = 'Could not load dashboard';
+  document.getElementById('state-sub').textContent = '';
+  var e = document.getElementById('state-err');
+  e.style.display = 'block';
+  e.innerHTML = '<strong>Error:</strong> ' + msg.replace(/\n/g,'<br>') + '<br><br>Steps to fix:<br>1. Open your <a href="https://docs.google.com/spreadsheets/d/' + SHEET + '" target="_blank">Google Sheet</a><br>2. Share → Anyone with the link → Viewer<br>3. Click retry below';
+  document.getElementById('retry-btn').style.display = 'block';
+}
+
+// ── ISO WEEK ──────────────────────────────────────────────────────────────────
+function isoWeek(dateStr) {
+  var d = new Date(dateStr);
+  if (isNaN(d)) return '';
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  var w1 = new Date(d.getFullYear(), 0, 4);
+  return 'W' + String(1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7)).padStart(2, '0');
+}
+function getWeek(row) {
+  var w = s(row[1]);
+  if (/^W\d+$/.test(w)) return w;
+  return isoWeek(s(row[0]));
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function render(arts, spkList, themeList, journoList, outputs, sovD, scD) {
+  var total = arts.length;
+  var artWeeks = arts.map(getWeek);
+  var weeks = [];
+  artWeeks.forEach(function(w) { if (w && weeks.indexOf(w) < 0) weeks.push(w); });
+  weeks.sort();
+
+  var pos  = arts.filter(function(r) { return s(r[6]) === 'Positive'; }).length;
+  var bal  = arts.filter(function(r) { return s(r[6]) === 'Balanced'; }).length;
+  var neg  = arts.filter(function(r) { return s(r[6]) === 'Negative'; }).length;
+  var spkM = arts.filter(function(r) { return s(r[10]); }).length;
+  var prY  = arts.filter(function(r) { return s(r[14]) === 'Yes'; }).length;
+  var tier = arts.filter(function(r) { return s(r[15]) === 'Yes'; }).length;
+  var pubs = new Set(arts.map(function(r) { return s(r[3]); })).size;
+
+  // Header meta
+  set('hdr-meta', total + ' articles · ' + pubs + ' publications · Updated ' +
+    new Date().toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}));
+
+  // KPIs
+  set('k-art', total);
+  set('k-sent', pct(pos, total) + '%');
+  set('k-spk', pct(spkM, total) + '%');
+  set('k-pr', pct(prY, total) + '%');
+  set('k-tier', tier);
+
+  // Result Snapshot
+  renderSnapshot(arts, outputs, total, pos, tier);
+
+  // Outputs tracker
+  renderOutputs(outputs);
+
+  // Volume chart
+  safeChart('cVol', 'line', {
+    labels: weeks,
+    datasets: [
+      { label:'Proactive', data: weeks.map(function(w) {
+          return arts.filter(function(_,i) { return artWeeks[i]===w && s(arts[i][7])==='Proactive'; }).length; }),
+        borderColor:'#1a6b40', backgroundColor:'rgba(26,107,64,.1)', tension:.4, fill:true, pointRadius:3, borderWidth:2 },
+      { label:'Organic', data: weeks.map(function(w) {
+          return arts.filter(function(_,i) { return artWeeks[i]===w && s(arts[i][7])==='Organic'; }).length; }),
+        borderColor:'#1e3a5f', backgroundColor:'rgba(30,58,95,.05)', tension:.4, fill:true, pointRadius:3, borderWidth:2, borderDash:[4,3] }
+    ]
+  }, { plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false}}, y:{grid:{color:'#eee'},beginAtZero:true,ticks:{stepSize:1}} } }, 130);
+
+  // Sentiment donut
+  var posPct = pct(pos, total);
+  safeChart('cSent', 'doughnut',
+    { labels:['Positive','Balanced','Negative'], datasets:[{ data:[pos,bal,neg],
+      backgroundColor:['#16a34a','#2563eb','#dc2626'], borderWidth:2, borderColor:'#fff', hoverOffset:4 }] },
+    { cutout:'68%', plugins:{ legend:{display:false} } }, 130,
+    [{ id:'ct', beforeDraw: function(chart) {
+      var ca = chart.chartArea, ctx = chart.ctx;
+      ctx.save();
+      ctx.font = "bold 20px 'Aptos','Segoe UI',sans-serif";
+      ctx.fillStyle = '#1a1a1a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(posPct + '%', ca.left + ca.width/2, ca.top + ca.height/2 - 8);
+      ctx.font = "9px 'Aptos','Segoe UI',sans-serif"; ctx.fillStyle = '#737370';
+      ctx.fillText('Positive', ca.left + ca.width/2, ca.top + ca.height/2 + 12);
+      ctx.restore();
+    }}]
+  );
+
+  // Source breakdown
+  var nat = arts.filter(function(r){return s(r[5])==='National';}).length;
+  var trd = arts.filter(function(r){return s(r[5])==='Trade';}).length;
+  var reg = arts.filter(function(r){return s(r[5])==='Regional';}).length;
+  set('src-nat', pct(nat,total)+'%');
+  set('src-trd', pct(trd,total)+'%');
+  set('src-reg', pct(reg,total)+'%');
+  var hl = arts.filter(function(r){return s(r[8])==='Headline';}).length;
+  var lp = arts.filter(function(r){return s(r[8])==='Lead paragraph';}).length;
+  var at = arts.filter(function(r){return s(r[8])==='Article text';}).length;
+  var cmax = Math.max(hl,lp,at,1);
+  document.getElementById('cite-bars').innerHTML =
+    [['Headline',hl,'#1a6b40'],['Lead paragraph',lp,'#1e3a5f'],['Article text',at,'#0d9488']].map(function(x) {
+      return '<div class="brow"><div class="blbl" style="width:80px;text-align:left;font-size:9px">'+x[0]+'</div>' +
+        '<div class="btrk"><div class="bfil" style="width:'+Math.round(x[1]/cmax*100)+'%;background:'+x[2]+'"></div></div>' +
+        '<div class="bval">'+pct(x[1],total)+'%</div></div>';
+    }).join('');
+
+  // Sentiment trend
+  safeChart('cTrend', 'bar', {
+    labels: weeks,
+    datasets: [
+      { label:'Positive', data: weeks.map(function(w){return arts.filter(function(_,i){return artWeeks[i]===w&&s(arts[i][6])==='Positive';}).length;}), backgroundColor:'#16a34a' },
+      { label:'Balanced', data: weeks.map(function(w){return arts.filter(function(_,i){return artWeeks[i]===w&&s(arts[i][6])==='Balanced';}).length;}), backgroundColor:'#2563eb' },
+      { label:'Negative', data: weeks.map(function(w){return arts.filter(function(_,i){return artWeeks[i]===w&&s(arts[i][6])==='Negative';}).length;}), backgroundColor:'#dc2626' }
+    ]
+  }, { plugins:{legend:{display:false}}, scales:{ x:{stacked:true,grid:{display:false}}, y:{stacked:true,grid:{color:'#eee'},beginAtZero:true,ticks:{stepSize:1}} } }, 80);
+
+  // Top tier
+  var tierOther = total - tier;
+  var tmax = Math.max(tier, tierOther, 1);
+  document.getElementById('tier-bars').innerHTML =
+    [['Top Tier',tier,'#1a6b40'],['All Other',tierOther,'#737370']].map(function(x) {
+      return '<div class="brow"><div class="blbl" style="width:70px;text-align:left">'+x[0]+'</div>' +
+        '<div class="btrk"><div class="bfil" style="width:'+Math.round(x[1]/tmax*100)+'%;background:'+x[2]+'"></div></div>' +
+        '<div class="bval">'+x[1]+'</div></div>';
+    }).join('');
+
+  // Activity / campaign donut
+  var cmap = {};
+  arts.forEach(function(r){ var a=s(r[12]); if(a) cmap[a]=(cmap[a]||0)+1; });
+  var cl = Object.keys(cmap), cv = cl.map(function(k){return cmap[k];});
+  if (cl.length) {
+    safeChart('cAct', 'doughnut',
+      { labels:cl, datasets:[{ data:cv, backgroundColor:COLORS.slice(0,cv.length), borderWidth:2, borderColor:'#fff' }] },
+      { cutout:'50%', plugins:{ legend:{ display:true, position:'bottom', labels:{boxWidth:10,padding:6,font:{size:9}} } } }, 190);
+  }
+
+  // Spokespeople
+  var sm = {};
+  arts.forEach(function(r){ var sp=s(r[10]); if(sp) sm[sp]=(sm[sp]||0)+1; });
+  var ss = Object.entries(sm).sort(function(a,b){return b[1]-a[1];}).slice(0,7);
+  var smax = ss.length ? ss[0][1] : 1;
+  document.getElementById('spk-bars').innerHTML = ss.map(function(x) {
+    return '<div class="brow"><div class="blbl">'+x[0]+'</div>' +
+      '<div class="btrk"><div class="bfil" style="width:'+Math.round(x[1]/smax*100)+'%;background:var(--brand)"></div></div>' +
+      '<div class="bval">'+x[1]+'</div></div>';
+  }).join('');
+
+  // Most active spokesperson
+  if (ss.length) {
+    var tnm = ss[0][0], tc = ss[0][1];
+    var totSpk = Object.values(sm).reduce(function(a,b){return a+b;},0);
+    var fa = arts.find(function(r){return s(r[10])===tnm;}) || arts[0];
+    var inf = spkList.find(function(x){return x.name===tnm;}) || {};
+    set('q-pct', pct(tc,totSpk)+'%');
+    set('q-nm', tnm);
+    set('q-tl', inf.title || '');
+    set('q-av', tnm.split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2));
+    set('q-act', fa ? s(fa[12]) : '');
+    set('q-src', fa ? s(fa[3]) + (s(fa[0]) ? ' · ' + s(fa[0]) : '') : '');
+  }
+
+  // Journalists
+  var jFiltered = journoList.filter(function(nm){return arts.some(function(r){return s(r[4])===nm;});}).slice(0,7);
+  document.getElementById('j-rows').innerHTML = jFiltered.map(function(nm) {
+    return mbar(nm,
+      arts.filter(function(r){return s(r[4])===nm&&s(r[6])==='Positive';}).length,
+      arts.filter(function(r){return s(r[4])===nm&&s(r[6])==='Balanced';}).length,
+      arts.filter(function(r){return s(r[4])===nm&&s(r[6])==='Negative';}).length);
+  }).join('');
+
+  // Publications
+  var pm = {};
+  arts.forEach(function(r){ var p=s(r[3]); if(p) pm[p]=(pm[p]||0)+1; });
+  var ps = Object.entries(pm).sort(function(a,b){return b[1]-a[1];}).slice(0,7);
+  document.getElementById('m-rows').innerHTML = ps.map(function(x) {
+    return mbar(x[0],
+      arts.filter(function(r){return s(r[3])===x[0]&&s(r[6])==='Positive';}).length,
+      arts.filter(function(r){return s(r[3])===x[0]&&s(r[6])==='Balanced';}).length,
+      arts.filter(function(r){return s(r[3])===x[0]&&s(r[6])==='Negative';}).length);
+  }).join('');
+
+  // Themes
+  var tm = themeList.map(function(t){return{t:t,v:arts.filter(function(r){return s(r[13])===t;}).length};})
+                    .filter(function(x){return x.v>0;}).sort(function(a,b){return b.v-a.v;});
+  var tmax2 = tm.length ? tm[0].v : 1;
+  document.getElementById('t-rows').innerHTML = tm.map(function(x,i) {
+    return '<div class="brow"><div class="blbl" style="width:110px;text-align:left">'+x.t+'</div>' +
+      '<div class="btrk"><div class="bfil" style="width:'+Math.round(x.v/tmax2*100)+'%;background:'+COLORS[i%COLORS.length]+'"></div></div>' +
+      '<div class="bval">'+x.v+'</div></div>';
+  }).join('');
+
+  // Share of Voice
+  if (sovD.length) {
+    var sl = sovD.map(function(r){return s(r[0]);}), sv = sovD.map(function(r){return n(r[1]);});
+    safeChart('cSov', 'doughnut',
+      { labels:sl, datasets:[{ data:sv, backgroundColor:COLORS.slice(0,sl.length), borderWidth:2, borderColor:'#fff' }] },
+      { cutout:'55%', plugins:{ legend:{display:false} } }, 110);
+    document.getElementById('sov-leg').innerHTML = sl.map(function(l,i) {
+      return '<div class="sov-row"><div class="sov-dot" style="background:'+COLORS[i]+'"></div>' +
+        '<span style="width:72px;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+l+'</span>' +
+        '<div class="sov-trk"><div class="sov-fil" style="width:'+Math.min(sv[i]*2,100)+'%;background:'+COLORS[i]+'"></div></div>' +
+        '<div class="sov-val">'+sv[i]+'%</div></div>';
+    }).join('');
+  } else {
+    document.getElementById('sov-leg').innerHTML = '<p style="font-size:10px;color:var(--muted);padding:8px 0">Add competitor data to the ShareOfVoice tab in your sheet.</p>';
+  }
+
+  // Sentiment comparison
+  if (scD.length) {
+    document.getElementById('sc-rows').innerHTML = scD.map(function(r,i) {
+      var co=s(r[0]),p2=n(r[1]),b2=n(r[2]),n2=n(r[3]),ic=i===0;
+      return '<div style="margin-bottom:8px">' +
+        '<div style="font-size:9px;font-weight:'+(ic?700:500)+';color:'+(ic?'var(--brand)':'var(--muted)')+';margin-bottom:3px">'+co+'</div>' +
+        '<div style="display:flex;gap:2px;height:14px;border-radius:3px;overflow:hidden">' +
+        (p2?'<div style="width:'+p2+'%;background:var(--pos);display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700">'+p2+'%</div>':'')+
+        (b2?'<div style="width:'+b2+'%;background:var(--bal);display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700">'+b2+'%</div>':'')+
+        (n2?'<div style="width:'+n2+'%;background:var(--neg);display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700">'+n2+'%</div>':'')+
+        '</div></div>';
+    }).join('');
+  } else {
+    document.getElementById('sc-rows').innerHTML = '<p style="font-size:10px;color:var(--muted);padding:8px 0">Add competitor data to the SentimentComparison tab in your sheet.</p>';
+  }
+
+  // Article log
+  var sentCls = { Positive:'pg', Balanced:'pa', Negative:'pr' };
+  document.getElementById('art-body').innerHTML = arts.map(function(a) {
+    return '<tr><td style="white-space:nowrap;color:var(--muted)">'+s(a[0])+'</td>' +
+      '<td class="hl">'+s(a[2])+'</td>' +
+      '<td style="white-space:nowrap">'+s(a[3])+'</td>' +
+      '<td style="white-space:nowrap;color:var(--muted)">'+s(a[4])+'</td>' +
+      '<td>'+s(a[12])+'</td>' +
+      '<td><span class="pill '+(sentCls[s(a[6])]||'pg')+'">'+s(a[6])+'</span></td>' +
+      '<td style="text-align:center">'+(s(a[15])==='Yes'?'⭐':'')+'</td>' +
+      '<td style="color:var(--muted)">'+s(a[8])+'</td>' +
+      '<td style="white-space:nowrap;color:var(--muted)">'+s(a[10])+'</td></tr>';
+  }).join('');
+
+  // Footer timestamp
+  set('foot-ts', 'Refreshed ' + new Date().toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + ' · Powered by MHP Group');
+}
+
+// ── RESULT SNAPSHOT ──────────────────────────────────────────────────────────
+function renderSnapshot(arts, outputs, total, pos, tier) {
+  var snap = [];
+  if (outputs && outputs.length > 2) {
+    var actRows = outputs.slice(2).filter(function(r) {
+      var lbl = s(r[0]);
+      return lbl && lbl.indexOf('RESULT') < 0 && lbl.indexOf('Note') < 0 && lbl.indexOf('TOTAL') < 0;
+    }).slice(0, 3);
+    actRows.forEach(function(r) {
+      var delivered = 0;
+      for (var m = 2; m <= 13; m++) delivered += n(r[m]);
+      snap.push({ val: delivered, lbl: s(r[0]) });
+    });
+  }
+  snap.push({ val: total, lbl: 'Total Coverage' });
+  snap.push({ val: tier, lbl: 'Top Tier Hits' });
+  snap.push({ val: pct(pos,total)+'%', lbl: 'Positive Sentiment' });
+
+  document.getElementById('snap-row').innerHTML = snap.map(function(x, i) {
+    return '<div class="snap-item">' +
+      '<div class="snap-val">'+x.val+'</div>' +
+      '<div class="snap-lbl">'+x.lbl+'</div>' +
+      (i < snap.length-1 ? '<span class="snap-arr">›</span>' : '') +
+      '</div>';
+  }).join('');
+}
+
+// ── OUTPUTS TRACKER ──────────────────────────────────────────────────────────
+var OUTPUT_ICONS = {
+  'media': '📡', 'broadcast': '📡', 'briefing': '📡',
+  'thought': '✍️', 'commentary': '✍️', 'leadership': '✍️', 'short': '✍️',
+  'content': '📦', 'package': '📦', 'blog': '📝',
+  'press': '📢', 'release': '📢', 'op-ed': '📰', 'opinion': '📰',
+  'interview': '🎙️', 'podcast': '🎙️',
+  'custom': '📋'
+};
+function getIcon(label) {
+  var l = label.toLowerCase();
+  for (var k in OUTPUT_ICONS) {
+    if (l.indexOf(k) > -1) return OUTPUT_ICONS[k];
+  }
+  return '📋';
+}
+function renderOutputs(outputs) {
+  var container = document.getElementById('out-cards');
+  if (!outputs || outputs.length < 3) {
+    container.innerHTML = '<p style="font-size:11px;color:var(--muted);padding:8px 0">No OUTPUTS data found. Add data to the OUTPUTS tab in your sheet.</p>';
+    return;
+  }
+  var dataRows = outputs.slice(2).filter(function(r) {
+    var lbl = s(r[0]);
+    return lbl && lbl.indexOf('RESULT') < 0 && lbl.indexOf('Note') < 0
+      && lbl.indexOf('TOTAL') < 0 && lbl.indexOf('⬆') < 0 && lbl.indexOf('💡') < 0;
+  });
+  if (!dataRows.length) {
+    container.innerHTML = '<p style="font-size:11px;color:var(--muted);padding:8px 0">No activity rows found in OUTPUTS tab.</p>';
+    return;
+  }
+  container.innerHTML = dataRows.map(function(r) {
+    var label    = s(r[0]);
+    var target   = s(r[1]);                // e.g. "3" or "2-4"
+    var delivered = 0;
+    for (var m = 2; m <= 13; m++) delivered += n(r[m]);
+    // Parse target for progress bar — use midpoint for ranges
+    var tNum = 0;
+    if (target.indexOf('-') > -1) {
+      var parts = target.split('-');
+      tNum = (n(parts[0]) + n(parts[1])) / 2 * countMonths(r);
+    } else {
+      tNum = n(target) * countMonths(r);
+    }
+    var pctV   = tNum > 0 ? Math.round(delivered / tNum * 100) : null;
+    var fillPct = tNum > 0 ? Math.min(Math.round(delivered / tNum * 100), 100) : 0;
+    var color  = pctV === null ? '#737370' : pctV >= 100 ? '#16a34a' : pctV >= 75 ? '#d97706' : '#dc2626';
+    var status = pctV === null ? 'No target set' : pctV >= 100 ? '✓ On track' : pctV >= 75 ? '⚡ Behind' : '⚠ At risk';
+    var ytgt   = s(r[15]) || (tNum > 0 ? tNum : '—');
+    return '<div class="out-card">' +
+      '<div class="out-card-icon">'+getIcon(label)+'</div>' +
+      '<div class="out-card-name">'+label+'</div>' +
+      '<div class="out-card-nums">' +
+        '<div class="out-card-delivered">'+delivered+'</div>' +
+        '<div class="out-card-target">of '+ytgt+' target</div>' +
+      '</div>' +
+      '<div class="out-prog-track"><div class="out-prog-fill" style="width:'+fillPct+'%;background:'+color+'"></div></div>' +
+      '<div class="out-card-status" style="color:'+color+'">'+status+(pctV!==null?' ('+pctV+'%)':'')+'</div>' +
+    '</div>';
+  }).join('');
+}
+function countMonths(r) {
+  // Count how many month columns have any data entered
+  var count = 0;
+  for (var m = 2; m <= 13; m++) { if (n(r[m]) > 0) count++; }
+  return count || 1;
+}
+
+// ── CHART HELPER ──────────────────────────────────────────────────────────────
+function safeChart(id, type, data, opts, h, plugins) {
+  try {
+    if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+    var el = document.getElementById(id);
+    if (!el) { console.warn('Canvas not found: ' + id); return; }
+    if (h) el.height = h;
+    charts[id] = new Chart(el.getContext('2d'), {
+      type: type, data: data,
+      options: Object.assign({ responsive: true }, opts),
+      plugins: plugins
+    });
+  } catch(e) {
+    console.error('Chart error (' + id + '):', e.message);
+  }
+}
+
+// ── MULTI-BAR ROWS ────────────────────────────────────────────────────────────
+function mbar(nm, p, b, ng) {
+  var t = p + b + ng || 1;
+  return '<div class="jrow"><div class="jnm" title="'+nm+'">'+nm+'</div><div class="mb">' +
+    (p  ? '<div class="ms" style="width:'+Math.round(p/t*100)+'%;background:var(--pos)">'+p+'</div>' : '') +
+    (b  ? '<div class="ms" style="width:'+Math.round(b/t*100)+'%;background:var(--bal)">'+b+'</div>' : '') +
+    (ng ? '<div class="ms" style="width:'+Math.round(ng/t*100)+'%;background:var(--neg)">'+ng+'</div>' : '') +
+    '</div></div>';
+}
+
+// ── START ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
